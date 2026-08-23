@@ -347,6 +347,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function getFibBlankCount(text) {
+    const matches = String(text || '').match(/_{2,}|\[(?:blank|\.\.\.|\s*)\]/gi);
+    return matches ? matches.length : 0;
+  }
+
   // Render question card
   function renderCurrentQuestion() {
     const q = questions[currentIdx];
@@ -355,14 +360,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     roundBadge.textContent = `Round ${currentRound} of ${quiz.rounds}`;
     questionBadge.textContent = `Question ${currentIdx + 1} of ${questions.length}`;
 
-    // Question Text
-    questionTextDisplay.textContent = q.question_text;
-
     // Options rendering based on question type
     const selectedAns = answers[q.id];
     let optionsHtml = '';
+    const qType = (q.type || 'MCQ').trim().toUpperCase();
 
-    if (q.type === 'MCQ') {
+    if (qType === 'MCQ') {
+      // Question Text
+      questionTextDisplay.textContent = q.question_text;
+
       // Render MCQ radio/button options
       getDisplayOptions(q).forEach((option, index) => {
         const displayLetter = String.fromCharCode(65 + index);
@@ -394,7 +400,38 @@ document.addEventListener('DOMContentLoaded', async () => {
           </button>
         `;
       });
+    } else if (qType === 'FIB' && getFibBlankCount(q.question_text) > 0) {
+      const savedParts = selectedAns ? selectedAns.split(',').map((s) => s.trim()) : [];
+      let blankCounter = 0;
+
+      const inlineHtml = escapeHtml(q.question_text).replace(/_{2,}|\[(?:blank|\.\.\.|\s*)\]/gi, () => {
+        const idx = blankCounter++;
+        const val = savedParts[idx] || '';
+        return `
+          <input
+            type="text"
+            class="inline-fib-input inline-block align-baseline mx-1 px-3 py-1.5 rounded-lg border-2 border-blue-400 bg-blue-50/50 text-blue-950 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white text-sm transition placeholder:text-slate-400 shadow-sm"
+            data-blank-index="${idx}"
+            placeholder="Blank ${idx + 1}"
+            value="${escapeHtml(val)}"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+        `;
+      });
+
+      questionTextDisplay.innerHTML = inlineHtml;
+
+      optionsHtml = `
+        <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs font-medium text-blue-800 flex items-center gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0"></i>
+          <span>Type your answers directly into the blank boxes in the sentence above.</span>
+        </div>
+      `;
     } else {
+      questionTextDisplay.textContent = q.question_text;
       // Render text input for FIB or Short Answer
       optionsHtml = `
         <input
@@ -418,11 +455,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     optionsContainer.innerHTML = optionsHtml;
 
     // Add input event listener for text answer to save as user types
-    if (q.type !== 'MCQ') {
+    if (qType === 'FIB' && getFibBlankCount(q.question_text) > 0) {
+      const inlineInputs = questionTextDisplay.querySelectorAll('.inline-fib-input');
+      const updateInlineAnswers = () => {
+        const parts = [];
+        inlineInputs.forEach((inp, idx) => {
+          parts[idx] = inp.value.trim();
+        });
+        answers[q.id] = parts.join(', ');
+      };
+      inlineInputs.forEach((inp) => {
+        inp.addEventListener('input', updateInlineAnswers);
+      });
+    } else if (qType !== 'MCQ') {
       const textInput = document.getElementById('student-text-answer');
       if (textInput) {
         textInput.addEventListener('input', () => {
-        answers[q.id] = textInput.value.trim();
+          answers[q.id] = textInput.value.trim();
         });
       }
     }
@@ -452,8 +501,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Helper to save current answer (for both MCQ and text)
   function saveCurrentAnswer() {
     const q = questions[currentIdx];
-    if (q.type === 'MCQ') {
+    if (!q) return;
+    const qType = (q.type || 'MCQ').trim().toUpperCase();
+    if (qType === 'MCQ') {
       // Already handled by selectOption, but just in case
+    } else if (qType === 'FIB' && getFibBlankCount(q.question_text) > 0) {
+      const inlineInputs = questionTextDisplay.querySelectorAll('.inline-fib-input');
+      if (inlineInputs && inlineInputs.length > 0) {
+        const parts = [];
+        inlineInputs.forEach((inp, idx) => {
+          parts[idx] = inp.value.trim();
+        });
+        answers[q.id] = parts.join(', ');
+      }
     } else {
       const textInput = document.getElementById('student-text-answer');
       if (textInput) {
