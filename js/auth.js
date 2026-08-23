@@ -1,4 +1,16 @@
 // js/auth.js
+
+// Global HTML Escape Utility
+window.escapeHtml = function(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 // Initialize Supabase Client from localStorage or window variables
 window.initSupabaseFromStorage = function() {
   const storedUrl = localStorage.getItem('SUPABASE_URL');
@@ -474,7 +486,7 @@ window.renderHeader = function(user) {
 
   const userEmail = user ? user.email : '';
   const isCustomConfig = !!localStorage.getItem('SUPABASE_CONFIG_UUID');
-  const configName = localStorage.getItem('SUPABASE_CONFIG_NAME') || 'Config';
+  const configName = localStorage.getItem('SUPABASE_CONFIG_NAME') || 'DB Config';
 
   headerContainer.innerHTML = `
     <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
@@ -492,10 +504,20 @@ window.renderHeader = function(user) {
           </div>
 
           <div class="flex items-center gap-3" id="header-auth-section">
+            <button
+              id="db-config-header-btn"
+              type="button"
+              class="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all duration-200 cursor-pointer"
+              title="Configure Database Connection PIN"
+            >
+              <i data-lucide="database" class="w-4 h-4 text-blue-600"></i>
+              <span class="hidden sm:inline">${escapeHtml(configName)}</span>
+            </button>
+
             ${user ? `
               <div class="flex items-center gap-3">
                 <span class="text-sm font-medium text-slate-600 hidden md:inline-block truncate max-w-[180px]">
-                  ${userEmail}
+                  ${escapeHtml(userEmail)}
                 </span>
                 <a
                   href="dashboard"
@@ -529,6 +551,16 @@ window.renderHeader = function(user) {
 
   if (window.lucide) {
     window.lucide.createIcons();
+  }
+
+  // Bind DB Config modal opener
+  const dbConfigBtn = document.getElementById('db-config-header-btn');
+  if (dbConfigBtn) {
+    dbConfigBtn.addEventListener('click', () => {
+      if (typeof window.openSupabaseConfigModal === 'function') {
+        window.openSupabaseConfigModal();
+      }
+    });
   }
 
   // Bind logout action
