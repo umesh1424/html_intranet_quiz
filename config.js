@@ -1,5 +1,5 @@
 // Supabase client configuration variables.
-// Set these through localStorage or the local /api/config/get endpoint.
+// Set these through localStorage or the hosted /api/config/get endpoint.
 window.DEFAULT_SUPABASE_URL = "";
 window.DEFAULT_SUPABASE_ANON_KEY = "";
 

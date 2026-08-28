@@ -1,5 +1,7 @@
 // js/auth.js
 
+const DEFAULT_NAMESERVER_URL = 'https://expressjs-api-intranet-nameserver.onrender.com';
+
 // Global HTML Escape Utility
 window.escapeHtml = function(str) {
   if (!str) return '';
@@ -72,29 +74,13 @@ window.ensureSupabaseClient = async function() {
 };
 
 // Supabase Config Fetch & Management Logic
-window.fetchSupabaseConfig = async function(pin, customServerUrl = '') {
+window.fetchSupabaseConfig = async function(pin) {
   const cleanPin = (pin || '').trim();
   if (!cleanPin) {
     throw new Error("PIN is required");
   }
 
-  // Potential endpoints to try in priority order
-  const customHost = (customServerUrl || localStorage.getItem('NAMESERVER_URL') || '').trim().replace(/\/$/, '');
-  const candidateHosts = [];
-
-  if (customHost) {
-    candidateHosts.push(customHost);
-  }
-
-  // If page is hosted on a domain (not file://), try same-origin relative endpoint
-  if (window.location && window.location.origin && window.location.origin !== 'null' && !window.location.origin.includes('file://')) {
-    candidateHosts.push(window.location.origin);
-  }
-
-  // Include the local nameserver used by the bundled Express app.
-  if (window.location && window.location.protocol !== 'https:') {
-    candidateHosts.push('http://localhost:3000');
-  }
+  const candidateHosts = [DEFAULT_NAMESERVER_URL];
 
   // Unique list of hosts
   const uniqueHosts = Array.from(new Set(candidateHosts));
@@ -147,7 +133,7 @@ window.fetchSupabaseConfig = async function(pin, customServerUrl = '') {
         name: 'Default Quiz Platform Config'
       };
     } else {
-      throw lastError || new Error('Could not connect to the local intranet nameserver for this PIN.');
+      throw lastError || new Error('Could not connect to the intranet nameserver for this PIN.');
     }
   }
 
