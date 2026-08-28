@@ -19,7 +19,7 @@
 
 /* Base style resets if any */
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background-color: #f8fafc; /* slate-50 */
   color: #0f172a; /* slate-900 */
 }
