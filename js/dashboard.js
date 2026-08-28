@@ -58,13 +58,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           ${!isSearching ? `
             <div class="flex justify-center gap-3">
               <a
-                href="questions"
+                href="questions.html"
                 class="px-4 py-2.5 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition"
               >
                 Go to Question Bank
               </a>
               <a
-                href="create"
+                href="create.html"
                 class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow-sm shadow-blue-100"
               >
                 Create Quiz
@@ -142,7 +142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 Settings
               </button>
               <button
-                onclick="window.location.href = 'create?edit=${quiz.id}'"
+                onclick="window.location.href = 'create.html?edit=${quiz.id}'"
                 class="flex items-center justify-center gap-1.5 w-full px-3 py-2 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-xs font-semibold text-slate-600 hover:text-blue-700 transition-all cursor-pointer"
               >
                 <i data-lucide="edit" class="w-3 h-3"></i>

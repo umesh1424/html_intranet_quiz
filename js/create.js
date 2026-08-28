@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               : 'You do not have any questions registered in the global bank yet.'}
           </p>
           <a
-            href="questions"
+            href="questions.html"
             class="mt-3 inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700"
           >
             Go register questions first
@@ -496,7 +496,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       setTimeout(() => {
-        window.location.href = 'dashboard';
+        window.location.href = 'dashboard.html';
       }, 800);
     } catch (err) {
       console.error('Error creating/updating quiz:', err);

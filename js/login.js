@@ -130,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           showAlert('success', 'Sign up successful! Redirecting to dashboard...');
           setTimeout(() => {
-            window.location.href = 'dashboard';
+            window.location.href = 'dashboard.html';
           }, 800);
         }
       } else {
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         showAlert('success', 'Logging you in...');
         setTimeout(() => {
-          window.location.href = 'dashboard';
+          window.location.href = 'dashboard.html';
         }, 800);
       }
     } catch (err) {
@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearAlert();
     googleLoginBtn.disabled = true;
     try {
-      const redirectUrl = window.location.origin + window.location.pathname.replace('login', 'dashboard');
+      const redirectUrl = new URL('dashboard.html', window.location.href).href;
       const { error } = await window.supabaseClient.auth.signInWithOAuth({
         provider: 'google',
         options: {

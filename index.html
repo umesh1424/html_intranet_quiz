@@ -90,7 +90,7 @@
       const hasConfig = localStorage.getItem('SUPABASE_URL') && localStorage.getItem('SUPABASE_ANON_KEY');
       const isVerified = sessionStorage.getItem('config_verified') === 'true';
       if (!hasConfig && !isVerified) {
-        window.location.href = 'config';
+        window.location.href = 'config.html';
       }
     })();
 

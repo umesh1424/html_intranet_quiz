@@ -391,7 +391,7 @@ window.checkAuth = async function(requiredRole = 'teacher') {
   if (!window.supabaseClient || !window.supabaseClient.auth) {
     window.currentUser = null;
     if (isTeacherPage) {
-      window.location.href = 'login';
+      window.location.href = 'login.html';
     }
     return null;
   }
@@ -407,7 +407,7 @@ window.checkAuth = async function(requiredRole = 'teacher') {
 
   if (isTeacherPage) {
     if (!user) {
-      window.location.href = 'login';
+      window.location.href = 'login.html';
       return null;
     }
 
@@ -427,7 +427,7 @@ window.checkAuth = async function(requiredRole = 'teacher') {
       } catch (err) {
         console.error('Failed to ensure teacher profile:', err);
       }
-      window.location.href = 'dashboard';
+      window.location.href = 'dashboard.html';
       return null;
     }
   }
@@ -496,7 +496,7 @@ window.renderHeader = function(user) {
                   ${escapeHtml(userEmail)}
                 </span>
                 <a
-                  href="dashboard"
+                  href="dashboard.html"
                   class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all duration-200"
                 >
                   <i data-lucide="layout-dashboard" class="w-4 h-4 text-slate-500"></i>
@@ -512,7 +512,7 @@ window.renderHeader = function(user) {
               </div>
             ` : `
               <a
-                href="login"
+                href="login.html"
                 class="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all duration-200"
               >
                 <i data-lucide="log-in" class="w-4 h-4 text-slate-500"></i>
@@ -544,7 +544,7 @@ window.renderHeader = function(user) {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
       await window.supabaseClient.auth.signOut();
-      window.location.href = 'login';
+      window.location.href = 'login.html';
     });
   }
 };

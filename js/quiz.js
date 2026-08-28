@@ -790,7 +790,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Redirect to results
       setTimeout(() => {
-        window.location.href = `result?code=${encodeURIComponent(quiz.access_code)}`;
+        window.location.href = `result.html?code=${encodeURIComponent(quiz.access_code)}`;
       }, 800);
     } catch (err) {
       console.error('Error submitting quiz results:', err);
