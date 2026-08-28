@@ -91,15 +91,9 @@ window.fetchSupabaseConfig = async function(pin, customServerUrl = '') {
     candidateHosts.push(window.location.origin);
   }
 
-  // Always include localhost:3000 as a candidate if on HTTP or local development
-  if (window.location && (window.location.protocol === 'http:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+  // Include the local nameserver used by the bundled Express app.
+  if (window.location && window.location.protocol !== 'https:') {
     candidateHosts.push('http://localhost:3000');
-  }
-
-  // Production nameserver API (Render). Tried as fallback when no custom override is set.
-  const DEFAULT_NAMESERVER_URL = 'https://expressjs-api-intranet-nameserver.onrender.com';
-  if (!customHost) {
-    candidateHosts.push(DEFAULT_NAMESERVER_URL);
   }
 
   // Unique list of hosts
@@ -153,11 +147,7 @@ window.fetchSupabaseConfig = async function(pin, customServerUrl = '') {
         name: 'Default Quiz Platform Config'
       };
     } else {
-      const isHttps = window.location.protocol === 'https:';
-      if (isHttps && !customHost) {
-        throw new Error('Unable to reach nameserver API from HTTPS page. Please deploy the nameserver API (e.g. Vercel) or enter your API URL in settings.');
-      }
-      throw lastError || new Error('Could not connect to intranet nameserver for this PIN.');
+      throw lastError || new Error('Could not connect to the local intranet nameserver for this PIN.');
     }
   }
 
@@ -572,4 +562,3 @@ window.renderHeader = function(user) {
     });
   }
 };
-
