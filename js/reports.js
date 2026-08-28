@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let filterDate = '';
   let filterTime = '';
   let filterQuizCode = '';
+  let tableSort = { key: 'score', direction: 'desc' };
   let quizFibShortCountMap = {}; // quizId -> number of FIB/Short Answer questions
 
   const reportsContainer = document.getElementById('reports-container');
@@ -335,6 +336,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function getResultPercentage(result) {
+    const totalQuestions = Number(result.total_questions) || 0;
+    if (totalQuestions <= 0) return 0;
+    return Math.round(((Number(result.score) || 0) / totalQuestions) * 100);
+  }
+
+  function getSortValue(result, key, sourceIndex) {
+    switch (key) {
+      case 'sno':
+        return sourceIndex;
+      case 'student_name':
+        return result.student_name || '';
+      case 'quiz':
+        return result.quizzes?.title || '';
+      case 'total_questions':
+        return Number(result.total_questions) || 0;
+      case 'score':
+        return Number(result.score) || 0;
+      case 'percentage':
+        return getResultPercentage(result);
+      case 'grade':
+        return getLetterGrade(getResultPercentage(result)).grade;
+      case 'completed_at':
+        return new Date(result.completed_at || 0).getTime() || 0;
+      case 'ai_grading':
+        return quizFibShortCountMap[result.quiz_id] || 0;
+      default:
+        return '';
+    }
+  }
+
+  function sortResults(list) {
+    const directionMultiplier = tableSort.direction === 'asc' ? 1 : -1;
+
+    return list
+      .map((result, sourceIndex) => ({ result, sourceIndex }))
+      .sort((a, b) => {
+        const aValue = getSortValue(a.result, tableSort.key, a.sourceIndex);
+        const bValue = getSortValue(b.result, tableSort.key, b.sourceIndex);
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          const numericDiff = aValue - bValue;
+          return numericDiff === 0 ? a.sourceIndex - b.sourceIndex : numericDiff * directionMultiplier;
+        }
+
+        const textDiff = String(aValue).localeCompare(String(bValue), undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        });
+        return textDiff === 0 ? a.sourceIndex - b.sourceIndex : textDiff * directionMultiplier;
+      })
+      .map(({ result }) => result);
+  }
+
+  function renderSortableHeader(key, label) {
+    const isActive = tableSort.key === key;
+    const nextDirection = isActive && tableSort.direction === 'asc' ? 'desc' : 'asc';
+    const sortIcon = isActive
+      ? (tableSort.direction === 'asc' ? 'arrow-up' : 'arrow-down')
+      : 'chevrons-up-down';
+    const ariaSort = isActive ? (tableSort.direction === 'asc' ? 'ascending' : 'descending') : 'none';
+
+    return `
+      <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider" aria-sort="${ariaSort}">
+        <button
+          type="button"
+          class="reports-sort-btn inline-flex items-center gap-1.5 font-bold uppercase tracking-wider text-slate-500 hover:text-blue-600 transition-colors cursor-pointer"
+          data-sort-key="${key}"
+          data-sort-direction="${nextDirection}"
+        >
+          <span>${label}</span>
+          <i data-lucide="${sortIcon}" class="w-3.5 h-3.5 ${isActive ? 'text-blue-600' : 'text-slate-300'}"></i>
+        </button>
+      </th>
+    `;
+  }
+
   // Render submissions table
   function renderTable(list) {
     const scopeName = 'All Quizzes';
@@ -343,6 +421,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderEmptyState();
       return;
     }
+
+    const sortedList = sortResults(list);
 
     let tableHtml = `
       <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden animate-slide-up">
@@ -372,22 +452,22 @@ document.addEventListener('DOMContentLoaded', async () => {
           <table class="min-w-full text-sm">
             <thead>
               <tr class="bg-slate-50 border-b border-slate-100">
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">S.NO</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Student Name</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Quiz</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Total Questions</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Score</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Percentage</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Grade</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Completed At</th>
-                <th class="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">AI Grading Data</th>
+                ${renderSortableHeader('sno', 'S.NO')}
+                ${renderSortableHeader('student_name', 'Student Name')}
+                ${renderSortableHeader('quiz', 'Quiz')}
+                ${renderSortableHeader('total_questions', 'Total Questions')}
+                ${renderSortableHeader('score', 'Score')}
+                ${renderSortableHeader('percentage', 'Percentage')}
+                ${renderSortableHeader('grade', 'Grade')}
+                ${renderSortableHeader('completed_at', 'Completed At')}
+                ${renderSortableHeader('ai_grading', 'AI Grading Data')}
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
     `;
 
-    list.forEach((result, idx) => {
-      const pct = Math.round((result.score / result.total_questions) * 100);
+    sortedList.forEach((result, idx) => {
+      const pct = getResultPercentage(result);
       const { grade, colorClass } = getLetterGrade(pct);
       const title = result.quizzes?.title || 'Unknown Quiz';
       const code = result.quizzes?.access_code || '';
@@ -472,6 +552,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
 
     reportsContainer.innerHTML = tableHtml;
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
   }
 
   // Render empty state
@@ -1112,6 +1195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               if (localRes) {
                 localRes.score = totalCorrect;
                 updateMetrics(getCurrentlyFilteredResults());
+                renderTable(getCurrentlyFilteredResults());
               }
             }
           })
@@ -1176,6 +1260,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   // Event delegation for btn-view-responses in reports container
   reportsContainer.addEventListener('click', (e) => {
+    const sortButton = e.target.closest('.reports-sort-btn');
+    if (sortButton) {
+      tableSort = {
+        key: sortButton.dataset.sortKey,
+        direction: sortButton.dataset.sortDirection === 'desc' ? 'desc' : 'asc',
+      };
+      renderTable(getCurrentlyFilteredResults());
+      return;
+    }
+
     const btn = e.target.closest('.btn-view-responses');
     if (!btn) return;
 
