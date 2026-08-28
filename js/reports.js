@@ -946,6 +946,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
+  function isStudentAnswerMissing(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    return !normalized || normalized === 'student not enter';
+  }
+
   function renderAnswerBox(label, value, colorClass, emptyText = 'Student not enter') {
     const displayValue = (value == null ? '' : String(value).trim()) || emptyText;
 
@@ -1167,6 +1172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return {
           q,
           index,
+          isUnanswered: isStudentAnswerMissing(grade.studentAnswer),
           ...grade,
         };
       });
@@ -1212,13 +1218,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `;
 
+      const unansweredCount = processedQuestions.filter((item) => item.isUnanswered).length;
+      if (unansweredCount > 0) {
+        contentHtml += `
+          <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <span class="text-xs font-semibold text-slate-500">
+              Showing ${processedQuestions.length - unansweredCount} answered question${processedQuestions.length - unansweredCount !== 1 ? 's' : ''}
+            </span>
+            <label class="inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                id="toggleUnansweredQuestions"
+                class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              >
+              Show unanswered (${unansweredCount})
+            </label>
+          </div>
+        `;
+      }
+
       processedQuestions.forEach((item) => {
-        const { q, index, questionType, studentAnswer, correctAnswer, studentCompare, correctCompare, isCorrect } = item;
+        const { q, index, questionType, studentAnswer, correctAnswer, studentCompare, correctCompare, isCorrect, isUnanswered } = item;
         const displayNumber = index + 1;
         const questionText = q.question_text || '';
+        let cardHtml = '';
 
         if (questionType === 'MCQ') {
-          contentHtml += renderMcqReviewCard(
+          cardHtml = renderMcqReviewCard(
             displayNumber,
             questionText,
             q,
@@ -1226,7 +1252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             correctCompare
           );
         } else if (questionType === 'FIB') {
-          contentHtml += renderFibReviewCard(
+          cardHtml = renderFibReviewCard(
             displayNumber,
             questionText,
             studentAnswer,
@@ -1234,7 +1260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             isCorrect
           );
         } else {
-          contentHtml += renderShortAnswerReviewCard(
+          cardHtml = renderShortAnswerReviewCard(
             displayNumber,
             questionText,
             studentAnswer,
@@ -1242,6 +1268,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             isCorrect
           );
         }
+
+        contentHtml += `
+          <div class="question-review-card ${isUnanswered ? 'hidden' : ''}" data-unanswered="${isUnanswered ? 'true' : 'false'}">
+            ${cardHtml}
+          </div>
+        `;
       });
 
       questionReviewContent.innerHTML = `<div class="space-y-4">${contentHtml}</div>`;
@@ -1286,6 +1318,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       result.quizzes?.title || 'Unknown Quiz',
       result.quiz_id
     );
+  });
+
+  questionReviewContent.addEventListener('change', (e) => {
+    if (e.target.id !== 'toggleUnansweredQuestions') return;
+
+    const showUnanswered = e.target.checked;
+    questionReviewContent
+      .querySelectorAll('.question-review-card[data-unanswered="true"]')
+      .forEach((card) => {
+        card.classList.toggle('hidden', !showUnanswered);
+      });
   });
 
   // Event delegation for btn-view-responses in student history modal
