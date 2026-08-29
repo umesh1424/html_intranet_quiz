@@ -7,10 +7,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let questions = [];
   let selectedTagFilter = 'all';
+  let selectedTypeFilter = 'all';
 
   const questionsList = document.getElementById('questions-list');
   const questionsSummary = document.getElementById('questions-summary');
   const tagFilter = document.getElementById('tag-filter');
+  const typeFilter = document.getElementById('type-filter');
 
   const toggleAddFormBtn = document.getElementById('toggle-add-form');
   const toggleIcon = document.getElementById('toggle-icon');
@@ -215,12 +217,14 @@ Rules:
 
   // Render questions
   function renderQuestions() {
-    const filtered = selectedTagFilter === 'all' 
-      ? questions 
-      : questions.filter((q) => q.syllabus_tag === selectedTagFilter);
+    const filtered = questions.filter((q) => {
+      const matchesTag = selectedTagFilter === 'all' || q.syllabus_tag === selectedTagFilter;
+      const matchesType = selectedTypeFilter === 'all' || normalizeQuestionType(q.type) === selectedTypeFilter;
+      return matchesTag && matchesType;
+    });
 
     // Summary text
-    questionsSummary.textContent = `${questions.length} questions registered total. Select a syllabus tag to filter.`;
+    questionsSummary.textContent = getQuestionsSummary(filtered.length);
 
     if (filtered.length === 0) {
       questionsList.innerHTML = `
@@ -228,11 +232,11 @@ Rules:
           <i data-lucide="alert-circle" class="w-12 h-12 text-slate-400 mx-auto mb-3"></i>
           <h3 class="text-lg font-bold text-slate-900">No questions found</h3>
           <p class="text-slate-600 text-sm mt-1 mb-4">
-            ${selectedTagFilter !== 'all'
-              ? `No questions match the tag "${selectedTagFilter}".`
+            ${hasActiveFilters()
+              ? `No questions match the selected ${getActiveFilterLabel()}.`
               : 'Your question bank is empty. Get started by adding a multiple-choice question.'}
           </p>
-          ${selectedTagFilter === 'all' ? `
+          ${!hasActiveFilters() ? `
             <button
               id="add-first-btn"
               class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition cursor-pointer"
@@ -333,6 +337,13 @@ Rules:
     selectedTagFilter = tagFilter.value;
     renderQuestions();
   });
+
+  if (typeFilter) {
+    typeFilter.addEventListener('change', () => {
+      selectedTypeFilter = typeFilter.value;
+      renderQuestions();
+    });
+  }
 
   // Manual Question creation
   manualForm.addEventListener('submit', async (e) => {
@@ -584,6 +595,39 @@ Rules:
     importCsvBtn.disabled = false;
     importCsvBtn.innerHTML = originalHtml;
     window.lucide.createIcons();
+  }
+
+  function normalizeQuestionType(type) {
+    const rawType = String(type || 'MCQ').trim().toUpperCase();
+    if (rawType === 'FIB' || rawType === 'FILL IN THE BLANK' || rawType === 'FILL IN THE BLANKS') {
+      return 'FIB';
+    }
+    if (rawType === 'SHORT ANSWER' || rawType === 'SA' || rawType === 'SHORTANSWER') {
+      return 'Short Answer';
+    }
+    return 'MCQ';
+  }
+
+  function hasActiveFilters() {
+    return selectedTagFilter !== 'all' || selectedTypeFilter !== 'all';
+  }
+
+  function getActiveFilterLabel() {
+    const activeFilters = [];
+    if (selectedTagFilter !== 'all') {
+      activeFilters.push(`tag "${selectedTagFilter}"`);
+    }
+    if (selectedTypeFilter !== 'all') {
+      activeFilters.push(`type "${selectedTypeFilter}"`);
+    }
+    return activeFilters.join(' and ');
+  }
+
+  function getQuestionsSummary(filteredCount) {
+    if (!hasActiveFilters()) {
+      return `${questions.length} questions registered total. Select a syllabus tag or question type to filter.`;
+    }
+    return `${filteredCount} of ${questions.length} questions match the selected ${getActiveFilterLabel()}.`;
   }
 
   // Helper function to escape HTML
