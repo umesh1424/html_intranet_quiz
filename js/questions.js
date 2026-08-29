@@ -6,7 +6,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.renderHeader(user);
 
   let questions = [];
-  let selectedTagFilter = 'all';
+  const initialTagFilter = new URLSearchParams(window.location.search).get('tag');
+  let selectedTagFilter = initialTagFilter || 'all';
   let selectedTypeFilter = 'all';
 
   const questionsList = document.getElementById('questions-list');

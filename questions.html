@@ -17,7 +17,7 @@
   <!-- Main Content -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
     <!-- Back Navigation & Toggle Form -->
-    <div class="mb-6 flex items-center justify-between">
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <a
         href="dashboard.html"
         class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-blue-600 transition"
@@ -26,13 +26,23 @@
         Back to Dashboard
       </a>
       
-      <button
-        id="toggle-add-form"
-        class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow-sm shadow-blue-100 cursor-pointer"
-      >
-        <i data-lucide="plus" class="w-4 h-4" id="toggle-icon"></i>
-        <span id="toggle-text">Add Question</span>
-      </button>
+      <div class="flex flex-wrap items-center gap-3">
+        <a
+          href="subjects.html"
+          class="inline-flex items-center gap-2 px-4 py-2.5 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all duration-200"
+        >
+          <i data-lucide="tags" class="w-4 h-4 text-slate-500"></i>
+          Syllabus Tags
+        </a>
+
+        <button
+          id="toggle-add-form"
+          class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow-sm shadow-blue-100 cursor-pointer"
+        >
+          <i data-lucide="plus" class="w-4 h-4" id="toggle-icon"></i>
+          <span id="toggle-text">Add Question</span>
+        </button>
+      </div>
     </div>
 
     <!-- Toggleable Form Panel (Manual Creation + CSV Import) -->

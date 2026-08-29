@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syllabus Tags - Quiz Platform</title>
+  <link rel="stylesheet" href="css/tailwind.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="min-h-screen bg-slate-50 flex flex-col">
+
+  <div id="header-container"></div>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <a
+        href="questions.html"
+        class="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-600 hover:text-blue-600 transition"
+      >
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        Back to Question Bank
+      </a>
+
+      <button
+        type="button"
+        id="delete-selected-subjects"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-semibold transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+        disabled
+      >
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+        Delete Selected
+      </button>
+    </div>
+
+    <section class="bg-white border border-slate-200 rounded-2xl p-6 mb-6 shadow-sm">
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h1 class="text-xl font-bold text-slate-900">All Syllabus Tags</h1>
+          <p id="subjects-summary" class="text-slate-500 text-sm mt-0.5">
+            Loading syllabus tags and subjects...
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full lg:w-auto">
+          <div class="relative w-full lg:w-80">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <i data-lucide="search" class="h-4 w-4 text-slate-400"></i>
+            </div>
+            <input
+              type="text"
+              id="subject-search"
+              placeholder="Search syllabus tags..."
+              class="block w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400 text-sm bg-white"
+            />
+          </div>
+
+          <div class="relative w-full sm:w-56">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <i data-lucide="hash" class="h-4 w-4 text-slate-400"></i>
+            </div>
+            <input
+              type="number"
+              id="max-questions-filter"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              placeholder="Max questions"
+              class="block w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-900 placeholder-slate-400 text-sm bg-white"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="subjects-list" class="space-y-4">
+      <div class="py-16 flex justify-center items-center">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="public/vendor/supabase.js"></script>
+  <script src="public/vendor/lucide.min.js"></script>
+  <script src="config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/subjects.js"></script>
+</body>
+</html>
