@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }">
                   ${letter}
                 </span>
-                <span class="flex-1">${escapeHtml(optionText)}</span>
+                <span class="flex-1 formatted-content">${formatQuestionText(optionText)}</span>
                 ${optionBadge}
               </div>
             `;
@@ -236,14 +236,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="text-xs font-bold ${isCorrect ? 'text-emerald-700' : 'text-rose-700'} mb-1 flex items-center gap-1">
                   <i data-lucide="${isCorrect ? 'check' : 'x'}" class="w-3.5 h-3.5"></i> Your Answer:
                 </div>
-                <div class="font-medium text-slate-900">${escapeHtml(item.student_answer || '(No answer provided)')}</div>
+                <div class="font-medium text-slate-900 formatted-content">${formatQuestionText(item.student_answer || '(No answer provided)')}</div>
               </div>
               ${!isCorrect ? `
                 <div class="p-3.5 rounded-xl border border-emerald-300 bg-emerald-50/50 text-sm">
                   <div class="text-xs font-bold text-emerald-700 mb-1 flex items-center gap-1">
                     <i data-lucide="check" class="w-3.5 h-3.5"></i> Correct Answer:
                   </div>
-                  <div class="font-medium text-emerald-900">${escapeHtml(item.correct_option)}</div>
+                  <div class="font-medium text-emerald-900 formatted-content">${formatQuestionText(item.correct_option)}</div>
                 </div>
               ` : ''}
             </div>
@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               </div>
               <div>${statusBadge}</div>
             </div>
-            <h4 class="text-base font-bold text-slate-900 leading-snug">${escapeHtml(item.question_text)}</h4>
+            <h4 class="text-base font-bold text-slate-900 leading-snug formatted-content">${formatQuestionText(item.question_text)}</h4>
             ${contentHtml}
           </div>
         `;

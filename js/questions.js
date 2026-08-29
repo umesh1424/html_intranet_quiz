@@ -268,19 +268,19 @@ Rules:
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div class="p-3 rounded-xl border text-sm flex gap-2 ${(q.correct_option || '').toUpperCase() === 'A' ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-semibold' : 'border-slate-100 bg-slate-50/50 text-slate-700'}">
               <span class="font-bold text-slate-400">A.</span>
-              <span>${escapeHtml(q.option_a)}</span>
+              <span class="formatted-content">${formatQuestionText(q.option_a)}</span>
             </div>
             <div class="p-3 rounded-xl border text-sm flex gap-2 ${(q.correct_option || '').toUpperCase() === 'B' ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-semibold' : 'border-slate-100 bg-slate-50/50 text-slate-700'}">
               <span class="font-bold text-slate-400">B.</span>
-              <span>${escapeHtml(q.option_b)}</span>
+              <span class="formatted-content">${formatQuestionText(q.option_b)}</span>
             </div>
             <div class="p-3 rounded-xl border text-sm flex gap-2 ${(q.correct_option || '').toUpperCase() === 'C' ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-semibold' : 'border-slate-100 bg-slate-50/50 text-slate-700'}">
               <span class="font-bold text-slate-400">C.</span>
-              <span>${escapeHtml(q.option_c)}</span>
+              <span class="formatted-content">${formatQuestionText(q.option_c)}</span>
             </div>
             <div class="p-3 rounded-xl border text-sm flex gap-2 ${(q.correct_option || '').toUpperCase() === 'D' ? 'bg-emerald-50 border-emerald-200 text-emerald-900 font-semibold' : 'border-slate-100 bg-slate-50/50 text-slate-700'}">
               <span class="font-bold text-slate-400">D.</span>
-              <span>${escapeHtml(q.option_d)}</span>
+              <span class="formatted-content">${formatQuestionText(q.option_d)}</span>
             </div>
           </div>
         `;
@@ -293,7 +293,7 @@ Rules:
         // Show clean text answer for FIB/Short Answer
         correctAnswerHtml = `
           <div class="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-4 py-2.5 rounded-xl w-fit">
-            🟢 Correct Answer: ${escapeHtml(q.correct_option || '')}
+            🟢 Correct Answer: <span class="formatted-content">${formatQuestionText(q.correct_option || '')}</span>
           </div>
         `;
       }
@@ -322,7 +322,7 @@ Rules:
             </button>
           </div>
 
-          <p class="text-slate-900 font-semibold mb-4 pr-8">${escapeHtml(q.question_text)}</p>
+          <p class="text-slate-900 font-semibold mb-4 pr-8 formatted-content">${formatQuestionText(q.question_text)}</p>
 
           ${optionsHtml}
 

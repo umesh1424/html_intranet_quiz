@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (qType === 'MCQ') {
       // Question Text
-      questionTextDisplay.textContent = q.question_text;
+      questionTextDisplay.innerHTML = formatQuestionText(q.question_text);
 
       // Render MCQ radio/button options
       getDisplayOptions(q).forEach((option, index) => {
@@ -394,8 +394,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             >
               ${displayLetter}
             </span>
-            <span class="text-sm ${isSelected ? 'font-semibold text-slate-900' : 'text-slate-700'}">
-              ${escapeHtml(optionText)}
+            <span class="text-sm formatted-content ${isSelected ? 'font-semibold text-slate-900' : 'text-slate-700'}">
+              ${formatQuestionText(optionText)}
             </span>
           </button>
         `;
@@ -404,10 +404,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       const savedParts = selectedAns ? selectedAns.split(',').map((s) => s.trim()) : [];
       let blankCounter = 0;
 
-      const inlineHtml = escapeHtml(q.question_text).replace(/_{2,}|\[(?:blank|\.\.\.|\s*)\]/gi, () => {
+      const blankTokens = [];
+      const textWithBlankTokens = String(q.question_text || '').replace(/_{2,}|\[(?:blank|\.\.\.|\s*)\]/gi, () => {
         const idx = blankCounter++;
         const val = savedParts[idx] || '';
-        return `
+        const token = `%%FIB_BLANK_${idx}%%`;
+        blankTokens.push({
+          token,
+          html: `
           <input
             type="text"
             class="inline-fib-input inline-block align-baseline mx-1 px-3 py-1.5 rounded-lg border-2 border-blue-400 bg-blue-50/50 text-blue-950 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white text-sm transition placeholder:text-slate-400 shadow-sm"
@@ -419,8 +423,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             autocapitalize="off"
             spellcheck="false"
           />
-        `;
+        `
+        });
+        return token;
       });
+      const inlineHtml = blankTokens.reduce(
+        (html, item) => html.replace(item.token, item.html),
+        formatQuestionText(textWithBlankTokens)
+      );
 
       questionTextDisplay.innerHTML = inlineHtml;
 
@@ -431,7 +441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `;
     } else {
-      questionTextDisplay.textContent = q.question_text;
+      questionTextDisplay.innerHTML = formatQuestionText(q.question_text);
       // Render text input for FIB or Short Answer
       optionsHtml = `
         <input

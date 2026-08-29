@@ -13,6 +13,18 @@ window.escapeHtml = function(str) {
     .replace(/'/g, '&#039;');
 };
 
+window.formatQuestionText = function(str) {
+  if (!str) return '';
+
+  return window.escapeHtml(str)
+    .replace(/`([^`\n]+)`/g, '<code class="formatted-inline-code">$1</code>')
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '<span class="formatted-frac"><span>$1</span><span>$2</span></span>')
+    .replace(/\\overline\{([^{}]+)\}/g, '<span class="formatted-overline">$1</span>')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+};
+
 // Initialize Supabase Client from localStorage or window variables
 window.initSupabaseFromStorage = function() {
   const storedUrl = localStorage.getItem('SUPABASE_URL');

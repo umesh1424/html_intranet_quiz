@@ -147,3 +147,48 @@ body {
 .csv-comma {
   color: #cbd5e1;
 }
+
+.formatted-content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.formatted-content strong {
+  font-weight: 700;
+}
+
+.formatted-content em {
+  font-style: italic;
+}
+
+.formatted-inline-code {
+  border-radius: 0.25rem;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 0.05rem 0.25rem;
+  font-size: 0.92em;
+}
+
+.formatted-overline {
+  text-decoration-line: overline;
+  text-decoration-thickness: 0.08em;
+  text-decoration-skip-ink: none;
+}
+
+.formatted-frac {
+  display: inline-grid;
+  grid-template-rows: auto auto;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1;
+  margin: 0 0.12em;
+}
+
+.formatted-frac > span:first-child {
+  border-bottom: 1px solid currentColor;
+  padding: 0 0.2em 0.08em;
+}
+
+.formatted-frac > span:last-child {
+  padding: 0.08em 0.2em 0;
+}
