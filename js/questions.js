@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const csvFileInput = document.getElementById('csv-file-input');
   const importCsvBtn = document.getElementById('import-csv-btn');
   const csvPasteInput = document.getElementById('csvPasteInput');
+  const csvPasteHighlight = document.getElementById('csvPasteHighlight');
+  const csvPasteLineNumbers = document.getElementById('csvPasteLineNumbers');
   const toggleModeFile = document.getElementById('toggle-mode-file');
   const toggleModePaste = document.getElementById('toggle-mode-paste');
   const wrapperFileInput = document.getElementById('wrapper-file-input');
@@ -92,6 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateQuestionTypeUI();
       csvFileInput.value = '';
       csvPasteInput.value = '';
+      renderCsvPasteEditor();
       setImportMode('file');
     }
     window.lucide.createIcons();
@@ -523,6 +526,7 @@ Rules:
       // Reset inputs
       csvFileInput.value = '';
       csvPasteInput.value = '';
+      renderCsvPasteEditor();
       toggleForm(false);
       fetchQuestions();
     } catch (err) {
@@ -597,6 +601,81 @@ Rules:
     window.lucide.createIcons();
   }
 
+  function setupCsvPasteEditor() {
+    if (!csvPasteInput || !csvPasteHighlight || !csvPasteLineNumbers) return;
+
+    csvPasteInput.addEventListener('input', renderCsvPasteEditor);
+    csvPasteInput.addEventListener('scroll', syncCsvPasteEditorScroll);
+    renderCsvPasteEditor();
+  }
+
+  function renderCsvPasteEditor() {
+    if (!csvPasteInput || !csvPasteHighlight || !csvPasteLineNumbers) return;
+
+    const value = csvPasteInput.value;
+    const lineCount = Math.max(value.split('\n').length, 1);
+    csvPasteLineNumbers.textContent = Array.from({ length: lineCount }, (_, index) => index + 1).join('\n');
+    csvPasteHighlight.innerHTML = value
+      ? value.split('\n').map(renderCsvHighlightLine).join('\n')
+      : '';
+    syncCsvPasteEditorScroll();
+  }
+
+  function syncCsvPasteEditorScroll() {
+    if (!csvPasteInput || !csvPasteHighlight || !csvPasteLineNumbers) return;
+
+    csvPasteHighlight.style.transform = `translate(${-csvPasteInput.scrollLeft}px, ${-csvPasteInput.scrollTop}px)`;
+    csvPasteLineNumbers.style.transform = `translateY(${-csvPasteInput.scrollTop}px)`;
+  }
+
+  function renderCsvHighlightLine(line) {
+    if (!line) return '<span class="csv-paste-empty">&nbsp;</span>';
+
+    return splitCsvLineWithDelimiters(line).map((part) => {
+      if (part.isDelimiter) {
+        return '<span class="csv-comma">,</span>';
+      }
+      return `<span class="csv-col-${part.column % 8}">${escapeHtml(part.value) || '&nbsp;'}</span>`;
+    }).join('');
+  }
+
+  function splitCsvLineWithDelimiters(line) {
+    const parts = [];
+    let value = '';
+    let column = 0;
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+
+      if (char === '"' && nextChar === '"') {
+        value += char + nextChar;
+        i += 1;
+        continue;
+      }
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        value += char;
+        continue;
+      }
+
+      if (char === ',' && !inQuotes) {
+        parts.push({ value, column, isDelimiter: false });
+        parts.push({ value: char, column, isDelimiter: true });
+        value = '';
+        column += 1;
+        continue;
+      }
+
+      value += char;
+    }
+
+    parts.push({ value, column, isDelimiter: false });
+    return parts;
+  }
+
   function normalizeQuestionType(type) {
     const rawType = String(type || 'MCQ').trim().toUpperCase();
     if (rawType === 'FIB' || rawType === 'FILL IN THE BLANK' || rawType === 'FILL IN THE BLANKS') {
@@ -642,5 +721,6 @@ Rules:
   }
 
   // Initialize page data
+  setupCsvPasteEditor();
   fetchQuestions();
 });
