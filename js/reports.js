@@ -828,6 +828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       question_text: item.question_text || '',
       question_bank_id: item.question_bank_id || item.question_id || null,
       student_answer: item.student_answer ?? item.answer ?? '',
+      attachments: item.attachments || [],
       question_type: item.question_type || item.type || 'MCQ',
       marks_assigned: item.marks_assigned ?? null,
       ai_reasoning: item.ai_reasoning ?? null,
@@ -1589,13 +1590,70 @@ document.addEventListener('DOMContentLoaded', async () => {
     const csvContent = rowsToCsv([detailedCsvHeaders, ...rowsByResult.flat()]);
     return includeAiPrompt ? buildAiGradingPrompt(csvContent) : csvContent;
   }
-  // Event delegation for copy CSV buttons
+  // Event delegation for copy CSV buttons & View Responses button
   reportsContainer.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.copy-csv-btn');
-    if (btn) {
-      await handleCopyCsv(btn);
+    const copyBtn = e.target.closest('.copy-csv-btn');
+    if (copyBtn) {
+      await handleCopyCsv(copyBtn);
+      return;
+    }
+
+    const viewBtn = e.target.closest('.btn-view-responses');
+    if (viewBtn) {
+      const submissionId = viewBtn.getAttribute('data-submission-id');
+      if (submissionId) {
+        await openQuestionReviewModal(submissionId);
+      }
     }
   });
+
+  async function openQuestionReviewModal(submissionId) {
+    if (!questionReviewModal || !questionReviewContent) return;
+
+    questionReviewTitle.textContent = 'Loading Student Responses...';
+    questionReviewContent.innerHTML = `
+      <div class="py-12 flex justify-center items-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    `;
+    questionReviewModal.classList.remove('hidden');
+
+    try {
+      const details = await getAiGradeReviewDetails(submissionId);
+      if (!details) {
+        questionReviewTitle.textContent = 'Response Review';
+        questionReviewContent.innerHTML = `
+          <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700 text-center">
+            Could not load question response details for this submission.
+          </div>
+        `;
+        return;
+      }
+
+      questionReviewTitle.textContent = `Response Review: ${details.studentName} (${details.quizTitle})`;
+      questionReviewContent.innerHTML = renderAiGradeReviewDetails(details, null, null);
+      if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+      console.error('Error opening question review modal:', err);
+      questionReviewTitle.textContent = 'Error Loading Responses';
+      questionReviewContent.innerHTML = `
+        <div class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700 text-center">
+          ${escapeHtml(err.message || 'An error occurred while loading student responses.')}
+        </div>
+      `;
+    }
+  }
+
+  if (closeQuestionReview && questionReviewModal) {
+    closeQuestionReview.addEventListener('click', () => {
+      questionReviewModal.classList.add('hidden');
+    });
+    questionReviewModal.addEventListener('click', (e) => {
+      if (e.target === questionReviewModal) {
+        questionReviewModal.classList.add('hidden');
+      }
+    });
+  }
 
   // Event delegation for Apply Filter button and Copy All CSV
   reportsContainer.addEventListener('click', async (e) => {
@@ -2125,6 +2183,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = results.find((item) => String(item.id) === String(submissionId));
     if (!result) return null;
 
+    const resultRow = await fetchResultRow(submissionId);
+    const snapshotResponses = normalizeResponseSnapshot(resultRow?.response_snapshot || result.response_snapshot, resultRow || result);
+
     const questionRows = await buildDetailedCsvRowsForResult(result);
     if (questionRows.length === 0) return null;
 
@@ -2134,15 +2195,52 @@ document.addEventListener('DOMContentLoaded', async () => {
       quizTitle: firstRow[3] || result.quizzes?.title || '',
       quizCode: firstRow[1] || result.quizzes?.access_code || '',
       totalQuestions: firstRow[6] || questionRows.length,
-      questions: questionRows.map((questionRow) => ({
-        questionIndex: questionRow[8],
-        questionType: questionRow[9],
-        questionText: questionRow[10],
-        studentAnswer: questionRow[11],
-        correctKey: questionRow[12],
-        assignedMarks: questionRow[13]
-      }))
+      questions: questionRows.map((questionRow) => {
+        const qIndex = questionRow[8];
+        const qTextKey = (questionRow[10] || '').trim().toLowerCase();
+        const snapMatch = snapshotResponses.find((s) => (s.question_text || '').trim().toLowerCase() === qTextKey || s.question_order === qIndex);
+        return {
+          questionIndex: qIndex,
+          questionType: questionRow[9],
+          questionText: questionRow[10],
+          studentAnswer: questionRow[11],
+          correctKey: questionRow[12],
+          assignedMarks: questionRow[13],
+          attachments: snapMatch?.attachments || []
+        };
+      })
     };
+  }
+
+  function renderAttachmentBadges(attachments) {
+    if (!attachments || !Array.isArray(attachments) || attachments.length === 0) return '';
+    return `
+      <div class="mt-2 pt-2 border-t border-slate-200/60 space-y-1.5">
+        <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 flex items-center gap-1">
+          <i data-lucide="paperclip" class="w-3 h-3 text-slate-400"></i>
+          <span>Attached Files (${attachments.length})</span>
+        </p>
+        <div class="flex flex-wrap gap-2">
+          ${attachments.map((att) => {
+            const isImage = (att.type && att.type.startsWith('image/')) || /\.(png|jpe?g|webp|gif)$/i.test(att.name || '');
+            if (isImage && att.dataUrl) {
+              return `
+                <a href="${att.dataUrl}" target="_blank" download="${escapeHtml(att.name || 'attachment')}" class="inline-flex items-center gap-2 p-1.5 bg-white border border-slate-200 rounded-lg text-xs hover:border-blue-500 transition group" title="Click to view/download image">
+                  <img src="${att.dataUrl}" class="w-7 h-7 object-cover rounded border border-slate-100" alt="${escapeHtml(att.name || '')}" />
+                  <span class="max-w-[120px] truncate text-slate-700 font-medium group-hover:text-blue-600">${escapeHtml(att.name || 'Image')}</span>
+                </a>
+              `;
+            }
+            return `
+              <a href="${att.dataUrl || '#'}" target="_blank" download="${escapeHtml(att.name || 'attachment')}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-200 hover:text-blue-600 transition" title="Click to view/download file">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-slate-500"></i>
+                <span class="max-w-[140px] truncate">${escapeHtml(att.name || 'File')}</span>
+              </a>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
   }
 
   function getAiProposedMark(aiReasoning, questionIndex, questionType) {
@@ -2232,6 +2330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="${studentBoxClass}">
               <p class="text-[10px] font-semibold uppercase tracking-wide ${studentLabelClass}">Student Answer</p>
               <p class="mt-1 text-xs ${studentTextClass}">${question.studentAnswer ? escapeHtml(question.studentAnswer) : '<em class="text-slate-400">No answer</em>'}</p>
+              ${renderAttachmentBadges(question.attachments)}
             </div>
             <div class="rounded-md bg-sky-50 p-2 border border-sky-200">
               <p class="text-[10px] font-semibold uppercase tracking-wide text-sky-800">Correct Answer</p>

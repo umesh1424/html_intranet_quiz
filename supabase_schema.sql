@@ -192,3 +192,22 @@ create policy "Authenticated users can manage student responses"
   for all
   using (auth.role() = 'authenticated')
   with check (auth.role() = 'authenticated');
+
+-- Storage Policies for 'quiz-attachments' bucket
+drop policy if exists "Allow public uploads to quiz-attachments bucket" on storage.objects;
+create policy "Allow public uploads to quiz-attachments bucket"
+  on storage.objects for insert
+  to public
+  with check (bucket_id = 'quiz-attachments');
+
+drop policy if exists "Allow public reads from quiz-attachments bucket" on storage.objects;
+create policy "Allow public reads from quiz-attachments bucket"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'quiz-attachments');
+
+drop policy if exists "Allow public updates to quiz-attachments bucket" on storage.objects;
+create policy "Allow public updates to quiz-attachments bucket"
+  on storage.objects for update
+  to public
+  using (bucket_id = 'quiz-attachments');

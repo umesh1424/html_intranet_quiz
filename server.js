@@ -3,7 +3,8 @@ const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // CORS: allow the GitHub Pages frontend (and local dev) to call this API.
 // The config endpoint only returns a public Supabase anon key, so a
@@ -364,6 +365,58 @@ app.post('/api/teacher/grade-submission', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('[Grade Submission API Error]:', err);
     return res.status(500).json({ error: err.message || 'Internal server error during grading' });
+  }
+});
+
+// Backend Storage Upload API (bypasses storage RLS policies using admin client)
+app.post('/api/upload-attachment', async (req, res) => {
+  try {
+    const { fileName, fileDataUrl, quizId, studentName } = req.body;
+    if (!fileName || !fileDataUrl) {
+      return res.status(400).json({ error: 'Missing fileName or fileDataUrl' });
+    }
+
+    const adminClient = getAdminSupabaseClient(req);
+    if (!adminClient) {
+      return res.status(500).json({ error: 'Supabase admin client not available' });
+    }
+
+    const matches = String(fileDataUrl).match(/^data:(.+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(400).json({ error: 'Invalid fileDataUrl format' });
+    }
+
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const cleanName = String(fileName).replace(/[^a-zA-Z0-9.-]/g, '_');
+    const uniqueSuffix = Math.random().toString(36).substring(2, 7);
+    const storagePath = `quiz_${quizId || 'general'}/${String(studentName || 'student').replace(/[^a-zA-Z0-9.-]/g, '_')}_${Date.now()}_${uniqueSuffix}_${cleanName}`;
+
+    const { data: uploadResult, error: uploadErr } = await adminClient
+      .storage
+      .from('quiz-attachments')
+      .upload(storagePath, buffer, {
+        contentType: mimeType,
+        upsert: true
+      });
+
+    if (uploadErr) {
+      console.error('[Server Attachment Upload Error]:', uploadErr);
+      return res.status(500).json({ error: uploadErr.message });
+    }
+
+    const { data: pubUrlObj } = adminClient
+      .storage
+      .from('quiz-attachments')
+      .getPublicUrl(storagePath);
+
+    return res.status(200).json({
+      success: true,
+      publicUrl: pubUrlObj?.publicUrl || ''
+    });
+  } catch (err) {
+    console.error('[Server Upload Attachment Exception]:', err);
+    return res.status(500).json({ error: err.message || 'Upload server error' });
   }
 });
 

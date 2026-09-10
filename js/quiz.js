@@ -28,10 +28,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentRound = 1;
   let currentIdx = 0;
   let answers = {};
+  let questionAttachments = {}; // q.id -> [{ name, type, size, dataUrl }, ...]
   let timeLeftSeconds = 0;
   let totalDurationSeconds = 0;
   let timerInterval = null;
   let submitting = false;
+
+  function saveAttachmentsToSession() {
+    if (quiz && studentName) {
+      try {
+        sessionStorage.setItem(`quiz_attachments_${quiz.id}_${studentName}`, JSON.stringify(questionAttachments));
+      } catch (e) {
+        console.warn('Could not save attachments to sessionStorage:', e);
+      }
+    }
+  }
+
+  function loadAttachmentsFromSession() {
+    if (quiz && studentName) {
+      try {
+        const saved = sessionStorage.getItem(`quiz_attachments_${quiz.id}_${studentName}`);
+        if (saved) {
+          questionAttachments = JSON.parse(saved);
+        }
+      } catch (e) {
+        console.warn('Could not load attachments from sessionStorage:', e);
+      }
+    }
+  }
 
   const quizHeaderTitle = document.getElementById('quiz-header-title');
   const timerDisplay = document.getElementById('timer-display');
@@ -208,6 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       quiz = quizData;
+      loadAttachmentsFromSession();
       quizHeaderTitle.textContent = quiz.title;
       quizCodeLabel.textContent = `Access Code: ${quiz.access_code}`;
 
@@ -400,65 +425,96 @@ document.addEventListener('DOMContentLoaded', async () => {
           </button>
         `;
       });
-    } else if (qType === 'FIB' && getFibBlankCount(q.question_text) > 0) {
-      const savedParts = selectedAns ? selectedAns.split(',').map((s) => s.trim()) : [];
-      let blankCounter = 0;
+    } else if (qType === 'FIB') {
+      questionTextDisplay.innerHTML = formatQuestionText(q.question_text);
+      if (getFibBlankCount(q.question_text) > 0) {
+        const savedParts = selectedAns ? selectedAns.split(',').map((s) => s.trim()) : [];
+        let blankCounter = 0;
 
-      const blankTokens = [];
-      const textWithBlankTokens = String(q.question_text || '').replace(/_{2,}|\[(?:blank|\.\.\.|\s*)\]/gi, () => {
-        const idx = blankCounter++;
-        const val = savedParts[idx] || '';
-        const token = `%%FIB_BLANK_${idx}%%`;
-        blankTokens.push({
-          token,
-          html: `
+        const blankTokens = [];
+        const textWithBlankTokens = String(q.question_text || '').replace(/_{2,}|\[(?:blank|\.\.\.|\s*)\]/gi, () => {
+          const idx = blankCounter++;
+          const val = savedParts[idx] || '';
+          const token = `%%FIB_BLANK_${idx}%%`;
+          blankTokens.push({
+            token,
+            html: `
+            <input
+              type="text"
+              class="inline-fib-input inline-block align-baseline mx-1 px-3 py-1.5 rounded-lg border-2 border-blue-400 bg-blue-50/50 text-blue-950 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white text-sm transition placeholder:text-slate-400 shadow-sm"
+              data-blank-index="${idx}"
+              placeholder="Blank ${idx + 1}"
+              value="${escapeHtml(val)}"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+          `
+          });
+          return token;
+        });
+        const inlineHtml = blankTokens.reduce(
+          (html, item) => html.replace(item.token, item.html),
+          formatQuestionText(textWithBlankTokens)
+        );
+
+        questionTextDisplay.innerHTML = inlineHtml;
+
+        optionsHtml = `
+          <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs font-medium text-blue-800 flex items-center gap-2">
+            <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0"></i>
+            <span>Type your answers directly into the blank boxes in the sentence above.</span>
+          </div>
+        `;
+      } else {
+        optionsHtml = `
           <input
             type="text"
-            class="inline-fib-input inline-block align-baseline mx-1 px-3 py-1.5 rounded-lg border-2 border-blue-400 bg-blue-50/50 text-blue-950 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white text-sm transition placeholder:text-slate-400 shadow-sm"
-            data-blank-index="${idx}"
-            placeholder="Blank ${idx + 1}"
-            value="${escapeHtml(val)}"
+            id="student-text-answer"
+            name="ans_${q.id}_${Date.now()}"
             autocomplete="off"
             autocorrect="off"
             autocapitalize="off"
             spellcheck="false"
+            aria-autocomplete="none"
+            data-lpignore="true"
+            data-form-type="other"
+            class="w-full p-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent shadow-sm"
+            placeholder="Type your answer here..."
+            value="${escapeHtml(selectedAns || '')}"
           />
-        `
-        });
-        return token;
-      });
-      const inlineHtml = blankTokens.reduce(
-        (html, item) => html.replace(item.token, item.html),
-        formatQuestionText(textWithBlankTokens)
-      );
-
-      questionTextDisplay.innerHTML = inlineHtml;
-
-      optionsHtml = `
-        <div class="rounded-xl border border-blue-100 bg-blue-50/50 p-4 text-xs font-medium text-blue-800 flex items-center gap-2">
-          <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0"></i>
-          <span>Type your answers directly into the blank boxes in the sentence above.</span>
-        </div>
-      `;
+        `;
+      }
     } else {
+      // Short Answer Question Type
       questionTextDisplay.innerHTML = formatQuestionText(q.question_text);
-      // Render text input for FIB or Short Answer
       optionsHtml = `
-        <input
-          type="text"
-          id="student-text-answer"
-          name="ans_${q.id}_${Date.now()}"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          spellcheck="false"
-          aria-autocomplete="none"
-          data-lpignore="true"
-          data-form-type="other"
-          class="w-full p-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-          placeholder="Type your answer here..."
-          value="${escapeHtml(selectedAns || '')}"
-        />
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              id="student-text-answer"
+              name="ans_${q.id}_${Date.now()}"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-autocomplete="none"
+              data-lpignore="true"
+              data-form-type="other"
+              class="flex-1 p-4 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent shadow-sm"
+              placeholder="Type your answer here..."
+              value="${escapeHtml(selectedAns || '')}"
+            />
+            <label for="student-file-upload" class="inline-flex items-center gap-2 px-4 py-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold border border-slate-200 cursor-pointer transition shrink-0 select-none shadow-sm" title="Upload screenshot, PDF, DOCX, etc.">
+              <i data-lucide="paperclip" class="w-4 h-4 text-slate-600"></i>
+              <span class="hidden sm:inline">Attach File</span>
+            </label>
+            <input type="file" id="student-file-upload" class="hidden" accept="image/*,.pdf,.doc,.docx,.txt" multiple />
+          </div>
+          <div id="attachments-preview-container" class="flex flex-wrap gap-2"></div>
+        </div>
       `;
     }
 
@@ -483,6 +539,115 @@ document.addEventListener('DOMContentLoaded', async () => {
         textInput.addEventListener('input', () => {
           answers[q.id] = textInput.value.trim();
         });
+      }
+
+      // Only wire file upload for Short Answer questions
+      const isShortAnswer = qType === 'SHORT ANSWER' || qType === 'SHORT_ANSWER' || qType === 'SHORT' || (qType !== 'MCQ' && qType !== 'FIB');
+      if (isShortAnswer) {
+        const fileInput = document.getElementById('student-file-upload');
+        if (fileInput) {
+          fileInput.addEventListener('change', async (e) => {
+            const selectedFiles = Array.from(e.target.files || []);
+            if (!selectedFiles.length) return;
+
+            if (!questionAttachments[q.id]) {
+              questionAttachments[q.id] = [];
+            }
+
+            for (const file of selectedFiles) {
+              if (file.size > 5 * 1024 * 1024) {
+                window.showToast(`File "${file.name}" exceeds maximum allowed size of 5MB.`, 'error');
+                continue;
+              }
+
+              try {
+                const dataUrl = await new Promise((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = (evt) => resolve(evt.target.result);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(file);
+                });
+
+                let fileUrl = dataUrl;
+
+                let uploadedToStorage = false;
+
+                if (window.supabaseClient) {
+                  try {
+                    const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                    const uniqueSuffix = Math.random().toString(36).substring(2, 7);
+                    const storagePath = `quiz_${quiz ? quiz.id : 'general'}/${studentName}_${Date.now()}_${uniqueSuffix}_${cleanName}`;
+                    const { data: uploadResult, error: uploadErr } = await window.supabaseClient
+                      .storage
+                      .from('quiz-attachments')
+                      .upload(storagePath, file, { upsert: true });
+
+                    if (!uploadErr && uploadResult) {
+                      const { data: pubUrlObj } = window.supabaseClient
+                        .storage
+                        .from('quiz-attachments')
+                        .getPublicUrl(storagePath);
+
+                      if (pubUrlObj && pubUrlObj.publicUrl) {
+                        fileUrl = pubUrlObj.publicUrl;
+                        uploadedToStorage = true;
+                      }
+                    } else if (uploadErr) {
+                      console.warn('Client storage upload notice (RLS policy check):', uploadErr.message);
+                    }
+                  } catch (sErr) {
+                    console.warn('Client storage upload exception:', sErr);
+                  }
+                }
+
+                // If client upload failed (e.g., due to POLICIES: 0), try server backend upload API
+                if (!uploadedToStorage) {
+                  try {
+                    const apiRes = await fetch('/api/upload-attachment', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'x-supabase-url': window.SUPABASE_URL || '',
+                        'x-supabase-key': window.SUPABASE_ANON_KEY || ''
+                      },
+                      body: JSON.stringify({
+                        fileName: file.name,
+                        fileDataUrl: dataUrl,
+                        quizId: quiz ? quiz.id : 'general',
+                        studentName: studentName
+                      })
+                    });
+
+                    if (apiRes.ok) {
+                      const apiData = await apiRes.json();
+                      if (apiData.publicUrl) {
+                        fileUrl = apiData.publicUrl;
+                        uploadedToStorage = true;
+                      }
+                    }
+                  } catch (apiErr) {
+                    console.warn('Backend API upload fallback notice (using base64):', apiErr);
+                  }
+                }
+
+                questionAttachments[q.id].push({
+                  name: file.name,
+                  type: file.type || 'application/octet-stream',
+                  size: file.size,
+                  dataUrl: fileUrl,
+                });
+              } catch (fErr) {
+                console.error('Error reading selected file:', fErr);
+              }
+            }
+
+            saveAttachmentsToSession();
+            renderAttachmentsPreview(q.id);
+            fileInput.value = '';
+          });
+        }
+
+        renderAttachmentsPreview(q.id);
       }
     }
 
@@ -608,12 +773,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     return Boolean(normStudent && normCorrect && normStudent === normCorrect);
   }
 
+  function renderAttachmentsPreview(qId) {
+    const container = document.getElementById('attachments-preview-container');
+    if (!container) return;
+
+    const list = questionAttachments[qId] || [];
+    if (list.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = list.map((fileObj, idx) => {
+      const isImage = (fileObj.type && fileObj.type.startsWith('image/')) || /\.(png|jpe?g|webp|gif)$/i.test(fileObj.name || '');
+      const formattedSize = fileObj.size ? `${(fileObj.size / 1024).toFixed(1)} KB` : '';
+
+      if (isImage && fileObj.dataUrl) {
+        return `
+          <div class="relative group flex items-center gap-2.5 p-2 px-3 rounded-xl border border-slate-200 bg-white shadow-sm max-w-xs">
+            <img src="${fileObj.dataUrl}" alt="${escapeHtml(fileObj.name)}" class="w-9 h-9 object-cover rounded-lg border border-slate-100 shrink-0" />
+            <div class="overflow-hidden text-xs">
+              <p class="font-medium text-slate-800 truncate" title="${escapeHtml(fileObj.name)}">${escapeHtml(fileObj.name)}</p>
+              <p class="text-[10px] text-slate-400 font-mono">${formattedSize}</p>
+            </div>
+            <button type="button" class="remove-attachment-btn ml-1 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer" data-file-index="${idx}" title="Remove attachment">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="relative group flex items-center gap-2.5 p-2 px-3 rounded-xl border border-slate-200 bg-slate-50 shadow-sm max-w-xs">
+          <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+          </div>
+          <div class="overflow-hidden text-xs">
+            <p class="font-medium text-slate-800 truncate" title="${escapeHtml(fileObj.name)}">${escapeHtml(fileObj.name)}</p>
+            <p class="text-[10px] text-slate-400 font-mono">${formattedSize}</p>
+          </div>
+          <button type="button" class="remove-attachment-btn ml-1 p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer" data-file-index="${idx}" title="Remove attachment">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    if (window.lucide) window.lucide.createIcons();
+
+    container.querySelectorAll('.remove-attachment-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-file-index'), 10);
+        if (!isNaN(idx) && questionAttachments[qId]) {
+          questionAttachments[qId].splice(idx, 1);
+          saveAttachmentsToSession();
+          renderAttachmentsPreview(qId);
+        }
+      });
+    });
+  }
+
   function buildResponseSnapshot() {
     return questions.map((q, index) => ({
       quiz_id: quiz.id,
       question_bank_id: q.id,
       question_text: q.question_text,
       student_answer: answers[q.id] || '',
+      attachments: questionAttachments[q.id] || [],
       question_type: q.type || 'MCQ',
       question_order: index + 1,
     }));
@@ -721,6 +946,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function triggerSubmission() {
     if (submitting) return;
     submitting = true;
+    saveCurrentAnswer();
 
     if (timerInterval) clearInterval(timerInterval);
 
