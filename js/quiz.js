@@ -1,4 +1,43 @@
 
+// Global Handlers for Excel Data Bar
+window.copyExcelTableData = function(qId) {
+  const ta = document.getElementById('editor-fallback-textarea-' + qId);
+  if (ta && ta.value) {
+    navigator.clipboard.writeText(ta.value).then(() => {
+      if (typeof window.showToast === 'function') window.showToast('Table data copied to clipboard!', 'success');
+    });
+  }
+};
+
+window.clearExcelTableData = function(qId) {
+  const ta = document.getElementById('editor-fallback-textarea-' + qId);
+  if (ta && confirm('Clear table data for this question?')) {
+    ta.value = '';
+    if (typeof saveAnswerWithTimestamp === 'function') saveAnswerWithTimestamp(qId, '', 'editor');
+    const statusEl = document.getElementById('editor-save-status-' + qId);
+    if (statusEl) {
+      statusEl.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200';
+      statusEl.innerHTML = '<span class="w-2 h-2 rounded-full bg-slate-400"></span><span>Ready for Table Editor</span>';
+    }
+    if (typeof window.showToast === 'function') window.showToast('Table data cleared.', 'info');
+  }
+};
+
+window.toggleInlineEditorFrame = function(qId) {
+  const wrapper = document.getElementById('inline-frame-wrapper-' + qId);
+  const textEl = document.getElementById('toggle-frame-text-' + qId);
+  if (!wrapper) return;
+  const isHidden = wrapper.classList.contains('hidden');
+  if (isHidden) {
+    wrapper.classList.remove('hidden');
+    if (textEl) textEl.textContent = 'Hide Embedded Frame';
+  } else {
+    wrapper.classList.add('hidden');
+    if (textEl) textEl.textContent = 'Show Embedded Frame';
+  }
+};
+
+
 // Helper: Extract markdown table from text into 2D array
 function extractMarkdownTableFromText(text) {
   if (!text || !text.includes('|')) return null;
@@ -1309,51 +1348,95 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
           </div>
 
-          <!-- Option B: Table Editor Container -->
-          <div id="excel-editor-panel-${q.id}" class="${!isUpload ? '' : 'hidden'} space-y-3">
-            <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
-              <span class="font-bold text-slate-800 flex items-center gap-1.5">
-                <i data-lucide="grid" class="w-4 h-4 text-emerald-600"></i> Online HTML Table Editor
-              </span>
-              <div class="flex items-center gap-2">
-                <span class="text-slate-500 font-medium flex items-center gap-1" id="editor-save-status-${q.id}">
-                  <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i> Ready / Autosaving
+                    <!-- Option B: Table Editor Container with Prominent Excel Button -->
+          <div id="excel-editor-panel-${q.id}" class="${!isUpload ? '' : 'hidden'} space-y-4">
+            <!-- Action Card: Open Excel Button & Sync Status -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-slate-50 border border-emerald-200/90 rounded-2xl shadow-sm">
+              <div class="flex items-center gap-3">
+                <span class="p-2.5 bg-emerald-600 text-white rounded-xl shadow-sm">
+                  <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                </span>
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900">Excel / Spreadsheet Workspace</h4>
+                  <p class="text-xs text-slate-500">Launch full Table Editor to calculate formulas, format cells, and submit answers</p>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="editor-save-status-${q.id}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${existingVal ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}">
+                  <span class="w-2 h-2 rounded-full ${existingVal ? 'bg-emerald-500' : 'bg-slate-400'}"></span>
+                  <span>${existingVal ? 'Data received from Table Editor' : 'Ready for Table Editor'}</span>
                 </span>
                 <button
                   type="button"
-                  id="excel-fullscreen-btn-${q.id}"
-                  onclick="window.toggleExcelFullscreen('${q.id}')"
-                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm cursor-pointer shadow-emerald-500/20"
-                  title="Toggle Fullscreen Table View (Esc to exit)"
+                  id="open-excel-btn-${q.id}"
+                  onclick="window.launchTableEditor('${q.id}')"
+                  class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-emerald-500/25 transition-all cursor-pointer select-none"
+                  title="Launch full Excel Table Editor in full website window"
                 >
-                  <i data-lucide="maximize-2" class="w-3.5 h-3.5" id="excel-fs-icon-${q.id}"></i>
-                  <span id="excel-fs-text-${q.id}">Full Screen</span>
+                  <i data-lucide="external-link" class="w-4 h-4"></i>
+                  <span>📊 Open Excel Table Editor</span>
                 </button>
               </div>
             </div>
 
-            <div class="relative w-full h-[520px] fullscreen-iframe-container rounded-2xl overflow-hidden border border-slate-300 shadow-sm bg-white">
+            <!-- Quiz Data Bar (Your Table / CSV Data) -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label for="editor-fallback-textarea-${q.id}" class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <i data-lucide="table" class="w-4 h-4 text-emerald-600"></i>
+                  <span>Quiz Data Bar (Your Excel Table Data):</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onclick="window.copyExcelTableData('${q.id}')"
+                    class="text-[11px] text-slate-600 hover:text-emerald-700 flex items-center gap-1 font-semibold px-2 py-0.5 rounded hover:bg-emerald-50 transition cursor-pointer"
+                    title="Copy table data"
+                  >
+                    <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                  </button>
+                  <button
+                    type="button"
+                    onclick="window.clearExcelTableData('${q.id}')"
+                    class="text-[11px] text-slate-600 hover:text-rose-600 flex items-center gap-1 font-semibold px-2 py-0.5 rounded hover:bg-rose-50 transition cursor-pointer"
+                    title="Clear table data"
+                  >
+                    <i data-lucide="trash-2" class="w-3 h-3"></i> Clear
+                  </button>
+                  <button
+                    type="button"
+                    id="toggle-inline-frame-btn-${q.id}"
+                    onclick="window.toggleInlineEditorFrame('${q.id}')"
+                    class="text-[11px] text-slate-600 hover:text-slate-900 flex items-center gap-1 font-semibold px-2 py-0.5 rounded hover:bg-slate-100 transition cursor-pointer"
+                    title="Toggle embedded view"
+                  >
+                    <i data-lucide="layout" class="w-3 h-3"></i>
+                    <span id="toggle-frame-text-${q.id}">Show Embedded Frame</span>
+                  </button>
+                  <span class="text-[11px] text-slate-400 flex items-center gap-1 ml-1">
+                    <i data-lucide="check" class="w-3 h-3 text-emerald-600"></i> Auto-saves to quiz answer
+                  </span>
+                </div>
+              </div>
+
+              <textarea
+                id="editor-fallback-textarea-${q.id}"
+                rows="5"
+                class="w-full p-3 font-mono text-xs border border-slate-300 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-xs text-slate-800 transition"
+                placeholder="Click 'Open Excel Table Editor' above to work on the spreadsheet. When you click 'Submit to Quiz', your table data automatically appears here."
+              >${escapeHtml(!isFileUploaded ? existingVal : '')}</textarea>
+            </div>
+
+            <!-- Optional Embedded Iframe (Toggled via button) -->
+            <div id="inline-frame-wrapper-${q.id}" class="hidden relative w-full h-[520px] fullscreen-iframe-container rounded-2xl overflow-hidden border border-slate-300 shadow-sm bg-white">
               <iframe
                 id="table-editor-iframe-${q.id}"
-                src="https://umesh1424.github.io/html_table_editor/"
+                src="https://umesh1424.github.io/html_table_editor/?qid=${q.id}"
                 class="w-full h-full border-0"
                 title="Online HTML Table Editor"
               ></iframe>
             </div>
-
-            <div class="mt-2">
-              <details class="text-xs text-slate-500 bg-slate-50 rounded-xl border border-slate-200 p-2.5">
-                <summary class="font-semibold text-slate-700 cursor-pointer select-none">Show/Hide Table Data View (Direct Data Sync & Backup)</summary>
-                <textarea
-                  id="editor-fallback-textarea-${q.id}"
-                  rows="5"
-                  class="w-full mt-2 p-3 font-mono text-xs border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Enter or view table data (CSV/JSON/Text)..."
-                >${escapeHtml(!isFileUploaded ? existingVal : '')}</textarea>
-              </details>
-            </div>
           </div>
-        </div>
       `;
     } else {
       // Short Answer Question Type
