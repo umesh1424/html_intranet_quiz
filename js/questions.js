@@ -1,9 +1,15 @@
 // js/questions.js
 document.addEventListener('DOMContentLoaded', async () => {
   // Check auth
-  const user = await window.checkAuth();
-  if (!user) return;
-  window.renderHeader(user);
+  let user = null;
+  try {
+    user = await window.checkAuth();
+    if (user && typeof window.renderHeader === 'function') {
+      window.renderHeader(user);
+    }
+  } catch (e) {
+    console.warn('Questions auth check notice:', e);
+  }
 
   let questions = [];
   const initialTagFilter = new URLSearchParams(window.location.search).get('tag');
@@ -146,7 +152,11 @@ Rules:
 3. For FIB & Short Answer: Leave option1, option2, option3, and option4 completely blank. Put the actual text answer inside 'correct_option'.`;
 
       try {
-        await navigator.clipboard.writeText(promptText);
+        if (typeof window.copyToClipboard === 'function') {
+          await window.copyToClipboard(promptText);
+        } else {
+          await navigator.clipboard.writeText(promptText);
+        }
         
         // Visual feedback
         const originalHtml = copyAiPromptBtn.innerHTML;
@@ -473,6 +483,10 @@ Rules:
         qType = 'FIB';
       } else if (rawType === 'SHORT ANSWER' || rawType === 'SA' || rawType === 'SHORTANSWER') {
         qType = 'Short Answer';
+      } else if (rawType === 'HTML' || rawType === 'CODESTUDIO') {
+        qType = 'HTML';
+      } else if (rawType === 'EXCEL' || rawType === 'XLSX' || rawType === 'TABLE') {
+        qType = 'EXCEL';
       }
 
       const isMCQ = (qType === 'MCQ');
@@ -684,6 +698,12 @@ Rules:
     }
     if (rawType === 'SHORT ANSWER' || rawType === 'SA' || rawType === 'SHORTANSWER') {
       return 'Short Answer';
+    }
+    if (rawType === 'HTML' || rawType === 'CODESTUDIO') {
+      return 'HTML';
+    }
+    if (rawType === 'EXCEL' || rawType === 'XLSX' || rawType === 'TABLE') {
+      return 'EXCEL';
     }
     return 'MCQ';
   }

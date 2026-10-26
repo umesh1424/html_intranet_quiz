@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               </h3>
               <button
                 id="${copyBtnId}"
-                onclick="window.copyAccessCode('${quiz.access_code}', '${copyBtnId}')"
+                onclick="window.copyAccessCode('${quiz.access_code}', '${copyBtnId}', event)"
                 class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-xs font-semibold text-slate-600 hover:text-blue-700 transition-all cursor-pointer shrink-0"
                 title="Copy Access Code"
               >
@@ -321,24 +321,79 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Global helper for copying code
-  window.copyAccessCode = async (code, btnId) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      const btn = document.getElementById(btnId);
-      btn.innerHTML = `
-        <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 animate-pulse"></i>
-        <span class="text-emerald-700">Copied</span>
-      `;
-      window.lucide.createIcons();
-      setTimeout(() => {
+  window.copyAccessCode = async (code, btnId, event) => {
+    const evt = event || window.event;
+    if (evt) {
+      if (typeof evt.preventDefault === 'function') evt.preventDefault();
+      if (typeof evt.stopPropagation === 'function') evt.stopPropagation();
+    }
+
+    const cleanCode = String(code || '').trim();
+    if (!cleanCode) return;
+
+    let copied = false;
+    if (typeof window.copyToClipboard === 'function') {
+      copied = await window.copyToClipboard(cleanCode);
+    } else {
+      try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          await navigator.clipboard.writeText(cleanCode);
+          copied = true;
+        }
+      } catch (e) {}
+
+      if (!copied) {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = cleanCode;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'fixed';
+          ta.style.top = '-9999px';
+          ta.style.left = '-9999px';
+          ta.style.opacity = '0';
+          ta.style.pointerEvents = 'none';
+          document.body.appendChild(ta);
+          ta.focus({ preventScroll: true });
+          ta.select();
+          ta.setSelectionRange(0, cleanCode.length);
+          copied = document.execCommand('copy');
+          document.body.removeChild(ta);
+        } catch (e) {}
+      }
+    }
+
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      const originalHtml = btn.dataset.originalHtml || btn.innerHTML;
+      btn.dataset.originalHtml = originalHtml;
+
+      const isIconOnly = !btn.querySelector('span') && !originalHtml.includes('<span>');
+
+      btn.classList.add('border-emerald-400', 'bg-emerald-50', 'text-emerald-700');
+      btn.classList.remove('border-slate-200', 'hover:bg-blue-50', 'text-slate-600', 'text-blue-600');
+
+      if (isIconOnly) {
+        btn.innerHTML = `<i data-lucide="check" class="w-4 h-4 text-emerald-600 animate-pulse"></i>`;
+      } else {
         btn.innerHTML = `
-          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-          <span>${code}</span>
+          <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-600 animate-pulse"></i>
+          <span class="text-emerald-700 font-bold">Copied!</span>
         `;
-        window.lucide.createIcons();
+      }
+      if (window.lucide) window.lucide.createIcons();
+
+      setTimeout(() => {
+        if (btn) {
+          btn.innerHTML = originalHtml;
+          btn.classList.remove('border-emerald-400', 'bg-emerald-50', 'text-emerald-700');
+          btn.classList.add('border-slate-200');
+          if (window.lucide) window.lucide.createIcons();
+        }
       }, 2000);
-    } catch (err) {
-      console.error('Failed to copy', err);
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(`Access code "${cleanCode}" copied to clipboard!`, 'success');
     }
   };
 
@@ -392,9 +447,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="text-lg font-mono font-bold text-blue-900 tracking-wider">${quiz.access_code}</div>
         </div>
         <button 
-          onclick="window.copyAccessCode('${quiz.access_code}', 'modal-copy-btn')" 
+          onclick="window.copyAccessCode('${quiz.access_code}', 'modal-copy-btn', event)" 
           id="modal-copy-btn"
-          class="p-2 hover:bg-blue-100 text-blue-600 rounded-lg transition"
+          class="p-2 hover:bg-blue-100 text-blue-600 rounded-lg transition cursor-pointer"
           title="Copy Code"
         >
           <i data-lucide="copy" class="w-5 h-5"></i>

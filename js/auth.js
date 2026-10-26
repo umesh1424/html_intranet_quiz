@@ -24,6 +24,7 @@ window.formatQuestionText = function(str) {
     .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
     .replace(/\n/g, '<br>');
 };
+var formatQuestionText = window.formatQuestionText;
 
 // Initialize Supabase Client from localStorage or window variables
 window.initSupabaseFromStorage = function() {
@@ -342,6 +343,53 @@ window.openSupabaseConfigModal = function() {
   modal.classList.remove('hidden');
 };
 
+
+// Universal Clipboard Utility (works across HTTP, HTTPS, Intranet, and WebView)
+window.copyToClipboard = async function(text) {
+  if (text === undefined || text === null) return false;
+  const str = String(text);
+
+  // 1. Try modern navigator.clipboard API if available
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(str);
+      return true;
+    } catch (err) {
+      console.warn('navigator.clipboard.writeText failed, using textarea fallback:', err);
+    }
+  }
+
+  // 2. Robust fallback using hidden textarea and execCommand('copy')
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = str;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    textarea.style.left = '-9999px';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    document.body.appendChild(textarea);
+
+    textarea.focus({ preventScroll: true });
+    textarea.select();
+    textarea.setSelectionRange(0, str.length);
+
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    if (success) return true;
+  } catch (err) {
+    console.warn('execCommand copy failed:', err);
+  }
+
+  // 3. Fallback prompt for environments where clipboard is completely disabled
+  try {
+    window.prompt('Copy to clipboard (Ctrl+C / Cmd+C):', str);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
 
 // Custom Toast notification system
 window.showToast = function(message, type = 'info') {

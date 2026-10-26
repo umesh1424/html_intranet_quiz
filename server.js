@@ -19,8 +19,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Disable caching for local development
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  next();
+});
+
 // Serve static frontend files for local testing (with clean URL support)
-app.use(express.static(__dirname, { extensions: ['html', 'htm'] }));
+app.use(express.static(__dirname, { extensions: ['html', 'htm'], etag: false, maxAge: 0 }));
 
 // Dedicated Admin Supabase Client Helper (uses service role key only for matching project URL)
 function getAdminSupabaseClient(req) {

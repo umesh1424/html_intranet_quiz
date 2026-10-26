@@ -1,8 +1,60 @@
+  // Student-Friendly: unwrap raw JSON dumps into clean human-readable code
+  function extractStudentFriendlyCode(rawCode) {
+    if (!rawCode || typeof rawCode !== 'string') return rawCode || '';
+    const trimmed = rawCode.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('{\n') && trimmed.endsWith('\n}'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object') {
+          const html = typeof parsed.html === 'string' ? parsed.html : (typeof parsed.code === 'string' ? parsed.code : '');
+          const css = typeof parsed.css === 'string' ? parsed.css.trim() : '';
+          const js = typeof parsed.js === 'string' ? parsed.js.trim() : '';
+
+          const isDef = (str) => {
+            if (!str) return true;
+            const t = str.trim();
+            return !t || 
+                   t === '/* Add your CSS here */' || 
+                   t === '// Add your JavaScript here' || 
+                   t === '<!-- Add your HTML code here -->' ||
+                   (t.startsWith('/* Add your CSS here') && t.length < 50) ||
+                   (t.startsWith('// Add your JavaScript here') && t.length < 50);
+          };
+
+          const hasCss = !isDef(css);
+          const hasJs = !isDef(js);
+
+          // If no custom CSS or JS, return clean simple code without JSON
+          if (!hasCss && !hasJs) {
+            return html;
+          }
+
+          let combined = html;
+          if (hasCss) {
+            combined = `<style>\n${css}\n</style>\n\n` + combined;
+          }
+          if (hasJs) {
+            combined = combined + `\n\n<script>\n${js}\n</script>`;
+          }
+          return combined;
+        }
+      } catch (e) {
+        return rawCode;
+      }
+    }
+    return rawCode;
+  }
+
 // js/result.js
-document.addEventListener('DOMContentLoaded', async () => {
-  // Render header (no auth required — students view this)
-  const user = await window.checkAuth();
-  window.renderHeader(user);
+document.addEventListener('DOMContentLoaded', () => {
+  // Render header in background (students viewing results do not require auth)
+  if (typeof window.checkAuth === 'function') {
+    window.checkAuth()
+      .then(user => {
+        if (typeof window.renderHeader === 'function') window.renderHeader(user);
+      })
+      .catch(err => console.warn('Result header checkAuth notice:', err));
+  }
 
   // Helper to escape HTML characters
   function escapeHtml(str) {
@@ -15,12 +67,44 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/'/g, '&#039;');
   }
 
-  // Pull results from sessionStorage
-  let rawScore = sessionStorage.getItem('lastScore');
-  let rawTotal = sessionStorage.getItem('lastTotal');
-  let rawTitle = sessionStorage.getItem('lastTitle');
-  let studentName = sessionStorage.getItem('studentName');
-  let rawReviewData = sessionStorage.getItem('lastQuizReview');
+  function formatQuestionText(str) {
+    if (typeof window.formatQuestionText === 'function') {
+      return window.formatQuestionText(str);
+    }
+    if (!str) return '';
+    return escapeHtml(str)
+      .replace(/`([^`\n]+)`/g, '<code class="formatted-inline-code">$1</code>')
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '<span class="formatted-frac"><span>$1</span><span>$2</span></span>')
+      .replace(/\\overline\{([^{}]+)\}/g, '<span class="formatted-overline">$1</span>')
+      .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function resolveQuestionType(item) {
+    if (!item) return 'MCQ';
+    const rawType = (item.type || '').trim().toUpperCase();
+    if (rawType === 'MCQ') return 'MCQ';
+    if (rawType === 'FIB') return 'FIB';
+    if (rawType === 'HTML' || rawType.includes('HTML') || rawType.includes('CODESTUDIO') || rawType === 'CODE') return 'HTML';
+    if (rawType === 'EXCEL' || rawType.includes('EXCEL') || rawType.includes('SPREADSHEET') || rawType === 'TABLE') return 'EXCEL';
+    const text = String(item.question_text || '').toLowerCase();
+    if (/\b(write|create|build|code|design)\s+(an?\s+)?html\b/.test(text) || /\bhtml\s+code\b/.test(text)) {
+      return 'HTML';
+    }
+    if (/\b(create|prepare|make)\s+(an?\s+)?(excel|spreadsheet|table\s+report)\b/.test(text) && !/\b(which|what|choose)\b/.test(text)) {
+      return 'EXCEL';
+    }
+    return 'Short Answer';
+  }
+
+  // Pull results from sessionStorage (with localStorage fallback)
+  const urlParams = new URLSearchParams(window.location.search);
+  let rawScore = sessionStorage.getItem('lastScore') ?? localStorage.getItem('lastScore');
+  let rawTotal = sessionStorage.getItem('lastTotal') ?? localStorage.getItem('lastTotal');
+  let rawTitle = sessionStorage.getItem('lastTitle') ?? localStorage.getItem('lastTitle');
+  let studentName = urlParams.get('name') ?? sessionStorage.getItem('studentName') ?? localStorage.getItem('studentName');
+  let rawReviewData = sessionStorage.getItem('lastQuizReview') ?? localStorage.getItem('lastQuizReview');
 
   // Fallback demo data if opened directly without prior quiz session
   if (rawScore === null || rawTotal === null) {
@@ -179,8 +263,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const syllabusTag = item.syllabus_tag ? `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-mono">${escapeHtml(item.syllabus_tag)}</span>` : '';
 
         let contentHtml = '';
+        const qType = resolveQuestionType(item);
 
-        if (item.type === 'MCQ') {
+        if (qType === 'MCQ') {
           contentHtml += `<div class="grid grid-cols-1 gap-2.5 mt-4">`;
           const reviewOptions = Array.isArray(item.options) && item.options.length > 0
             ? item.options
@@ -228,6 +313,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
           });
           contentHtml += `</div>`;
+        } else if (qType === 'HTML') {
+          contentHtml += `
+            <div class="mt-4 space-y-2">
+              <div class="text-xs font-bold text-blue-700 flex items-center gap-1">
+                <i data-lucide="code" class="w-3.5 h-3.5"></i> Your Submitted HTML/CSS/JS Code:
+              </div>
+              <div class="p-3.5 rounded-xl border border-slate-300 bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto max-h-60">
+                <pre><code>${escapeHtml(extractStudentFriendlyCode(item.student_answer || '') || '(No code submitted)')}</code></pre>
+              </div>
+            </div>
+          `;
+        } else if (qType === 'EXCEL') {
+          const rawAns = item.student_answer || '';
+          const isFile = rawAns.startsWith('[EXCEL_FILE]');
+
+          if (isFile) {
+            const parts = rawAns.split(' ');
+            const fileUrl = parts[1] || '';
+            const fileName = parts.slice(2).join(' ') || 'Workbook.xlsx';
+
+            contentHtml += `
+              <div class="mt-4 p-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-xs flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="file-spreadsheet" class="w-5 h-5 text-emerald-600"></i>
+                  <div>
+                    <p class="font-bold text-emerald-950">${escapeHtml(fileName)}</p>
+                    <p class="text-[10px] text-emerald-700">Option A: Uploaded Excel Workbook</p>
+                  </div>
+                </div>
+                ${fileUrl ? `<a href="${fileUrl}" target="_blank" download="${escapeHtml(fileName)}" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-xs hover:bg-emerald-700 transition">Download File</a>` : ''}
+              </div>
+            `;
+          } else {
+            contentHtml += `
+              <div class="mt-4 space-y-2">
+                <div class="text-xs font-bold text-emerald-700 flex items-center gap-1">
+                  <i data-lucide="table" class="w-3.5 h-3.5"></i> Your Table Editor Answer:
+                </div>
+                <div class="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50 font-mono text-xs overflow-x-auto max-h-60 text-slate-800">
+                  <pre><code>${escapeHtml(rawAns || '(No table data submitted)')}</code></pre>
+                </div>
+              </div>
+            `;
+          }
         } else {
           // FIB / Short Answer rendering
           contentHtml += `

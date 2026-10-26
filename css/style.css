@@ -192,3 +192,37 @@ body {
 .formatted-frac > span:last-child {
   padding: 0.08em 0.2em 0;
 }
+
+/* Fullscreen Interactive Editor Workspace */
+.fullscreen-workspace-active {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  background-color: #0b1120 !important;
+  padding: 1rem 1.25rem !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+
+.fullscreen-workspace-active .editor-split-container {
+  height: calc(100vh - 170px) !important;
+  flex: 1 1 auto !important;
+}
+
+.fullscreen-workspace-active .fullscreen-iframe-container {
+  height: calc(100vh - 170px) !important;
+  flex: 1 1 auto !important;
+}
+
+.fullscreen-workspace-active .fullscreen-footer {
+  display: flex !important;
+}
+
+.fullscreen-workspace-active .hide-in-fullscreen {
+  display: none !important;
+}

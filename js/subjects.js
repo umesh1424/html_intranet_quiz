@@ -269,6 +269,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const rawType = String(type || 'MCQ').trim().toUpperCase();
     if (rawType === 'FIB' || rawType === 'FILL IN THE BLANK' || rawType === 'FILL IN THE BLANKS') return 'FIB';
     if (rawType === 'SHORT ANSWER' || rawType === 'SA' || rawType === 'SHORTANSWER') return 'Short Answer';
+    if (rawType === 'HTML' || rawType === 'CODESTUDIO') return 'HTML';
+    if (rawType === 'EXCEL' || rawType === 'XLSX' || rawType === 'TABLE') return 'EXCEL';
     return 'MCQ';
   }
 

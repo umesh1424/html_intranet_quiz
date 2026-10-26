@@ -14,6 +14,53 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('✅ [Reports] Auth successful');
   window.renderHeader(user);
 
+  // Student-Friendly: unwrap raw JSON dumps into clean human-readable code
+  function extractStudentFriendlyCode(rawCode) {
+    if (!rawCode || typeof rawCode !== 'string') return rawCode || '';
+    const trimmed = rawCode.trim();
+    if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('{\n') && trimmed.endsWith('\n}'))) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === 'object') {
+          const html = typeof parsed.html === 'string' ? parsed.html : (typeof parsed.code === 'string' ? parsed.code : '');
+          const css = typeof parsed.css === 'string' ? parsed.css.trim() : '';
+          const js = typeof parsed.js === 'string' ? parsed.js.trim() : '';
+
+          const isDef = (str) => {
+            if (!str) return true;
+            const t = str.trim();
+            return !t || 
+                   t === '/* Add your CSS here */' || 
+                   t === '// Add your JavaScript here' || 
+                   t === '<!-- Add your HTML code here -->' ||
+                   (t.startsWith('/* Add your CSS here') && t.length < 50) ||
+                   (t.startsWith('// Add your JavaScript here') && t.length < 50);
+          };
+
+          const hasCss = !isDef(css);
+          const hasJs = !isDef(js);
+
+          // If no custom CSS or JS, return clean simple code without JSON
+          if (!hasCss && !hasJs) {
+            return html;
+          }
+
+          let combined = html;
+          if (hasCss) {
+            combined = `<style>\n${css}\n</style>\n\n` + combined;
+          }
+          if (hasJs) {
+            combined = combined + `\n\n<script>\n${js}\n</script>`;
+          }
+          return combined;
+        }
+      } catch (e) {
+        return rawCode;
+      }
+    }
+    return rawCode;
+  }
+
   let quizzes = [];
   let results = [];
   let filterDate = '';
@@ -930,7 +977,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       student_name: resultRow?.student_name || '',
       question_text: item.question_text || '',
       question_bank_id: item.question_bank_id || item.question_id || null,
-      student_answer: item.student_answer ?? item.answer ?? '',
+      student_answer: extractStudentFriendlyCode(item.student_answer ?? item.answer ?? ''),
       attachments: item.attachments || [],
       question_type: item.question_type || item.type || 'MCQ',
       marks_assigned: item.marks_assigned ?? null,
@@ -996,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   function evaluateQuestionGrade(questionType, studentResp, question) {
     const typeKey = normalizeQuestionType(questionType);
-    const rawStudent = studentResp ? String(studentResp.student_answer || '').trim() : '';
+    const rawStudent = studentResp ? extractStudentFriendlyCode(studentResp.student_answer || '').trim() : '';
     const cleanStudentAns = rawStudent.toLowerCase();
 
     let correctAnswer = '';
@@ -1340,7 +1387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const questionText = resp.question_text || qBank?.question_text || '';
         const questionType = normalizeQuestionType(resp.question_type || qBank?.type);
-        const rawStudentAnswer = String(resp.student_answer || '').trim();
+        const rawStudentAnswer = extractStudentFriendlyCode(resp.student_answer || '').trim();
         const studentAnswer = (questionType === 'MCQ' && qBank)
           ? formatMcqAnswerLabel(normalizeMcqLetter(rawStudentAnswer, qBank), qBank)
           : rawStudentAnswer;
@@ -1394,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const studentResp = findStudentResponse(question, responseMaps);
       const questionType = normalizeQuestionType(question.type || studentResp?.question_type);
-      const rawStudentAnswer = studentResp ? String(studentResp.student_answer || '').trim() : '';
+      const rawStudentAnswer = studentResp ? extractStudentFriendlyCode(studentResp.student_answer || '').trim() : '';
       const studentAnswer = questionType === 'MCQ'
         ? formatMcqAnswerLabel(normalizeMcqLetter(rawStudentAnswer, question), question)
         : rawStudentAnswer;
@@ -1537,7 +1584,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const csvContent = await buildDetailedCsvTextForResults(filtered, true);
-        await navigator.clipboard.writeText(csvContent);
+        if (typeof window.copyToClipboard === 'function') {
+          await window.copyToClipboard(csvContent);
+        } else {
+          await navigator.clipboard.writeText(csvContent);
+        }
         window.showToast(`Detailed AI CSV prompt for ${filtered.length} students copied!`, 'success');
       } catch (err) {
         console.error('Error copying all CSV:', err);
@@ -2220,12 +2271,35 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="grid gap-2 sm:grid-cols-2">
             <div class="${studentBoxClass}">
               <p class="text-[10px] font-semibold uppercase tracking-wide ${studentLabelClass}">Student Answer</p>
-              <p class="mt-1 text-xs ${studentTextClass}">${question.studentAnswer ? escapeHtml(question.studentAnswer) : '<em class="text-slate-400">No answer</em>'}</p>
+              <div class="mt-1 text-xs ${studentTextClass}">
+                ${(() => {
+                  const rawAns = question.studentAnswer || '';
+                  if (!rawAns) return '<em class="text-slate-400">No answer</em>';
+                  if (qType === 'HTML') {
+                    return `<div class="p-2 bg-slate-900 text-slate-100 font-mono text-[11px] rounded overflow-x-auto max-h-40"><pre><code>${escapeHtml(rawAns)}</code></pre></div>`;
+                  }
+                  if (qType === 'EXCEL' && rawAns.startsWith('[EXCEL_FILE]')) {
+                    const parts = rawAns.split(' ');
+                    const fileUrl = parts[1] || '';
+                    const fileName = parts.slice(2).join(' ') || 'Workbook.xlsx';
+                    return `
+                      <div class="flex items-center justify-between gap-2 p-2 bg-white rounded border border-emerald-300">
+                        <span class="font-bold truncate text-emerald-950">${escapeHtml(fileName)}</span>
+                        ${fileUrl ? `<a href="${fileUrl}" target="_blank" download="${escapeHtml(fileName)}" class="px-2 py-1 bg-emerald-600 text-white rounded text-[10px] font-bold shrink-0">Download</a>` : ''}
+                      </div>
+                    `;
+                  }
+                  if (qType === 'EXCEL') {
+                    return `<div class="p-2 bg-emerald-100/60 text-emerald-950 font-mono text-[11px] rounded overflow-x-auto max-h-40"><pre><code>${escapeHtml(rawAns)}</code></pre></div>`;
+                  }
+                  return escapeHtml(rawAns);
+                })()}
+              </div>
               ${renderAttachmentBadges(question.attachments)}
             </div>
             <div class="rounded-md bg-sky-50 p-2 border border-sky-200">
-              <p class="text-[10px] font-semibold uppercase tracking-wide text-sky-800">Correct Answer</p>
-              <p class="mt-1 text-xs text-sky-950">${escapeHtml(question.correctKey || '')}</p>
+              <p class="text-[10px] font-semibold uppercase tracking-wide text-sky-800">Correct Answer / Model Solution</p>
+              <p class="mt-1 text-xs text-sky-950">${escapeHtml(question.correctKey || 'N/A (Subjective Practical)')}</p>
             </div>
           </div>
           ${hasAssignedMarks ? `<p class="text-[11px] text-slate-500">Previous mark: ${escapeHtml(String(question.assignedMarks))}</p>` : ''}
@@ -2810,7 +2884,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const csvContent = await buildDetailedCsvTextForResults([result], true);
-      await navigator.clipboard.writeText(csvContent);
+      if (typeof window.copyToClipboard === 'function') {
+        await window.copyToClipboard(csvContent);
+      } else {
+        await navigator.clipboard.writeText(csvContent);
+      }
       window.showToast(`Detailed AI CSV prompt for ${studentName} copied!`, 'success');
     } catch (err) {
       console.error('Error copying CSV:', err);
