@@ -1,3 +1,99 @@
+
+// Helper: Extract markdown table from text into 2D array
+function extractMarkdownTableFromText(text) {
+  if (!text || !text.includes('|')) return null;
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  for (let i = 0; i < lines.length - 1; i++) {
+    const trimmed = lines[i].trim();
+    const nextTrimmed = lines[i + 1].trim();
+    if (trimmed.includes('|') && /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(nextTrimmed)) {
+      const cleanRow = r => {
+        let s = r.trim();
+        if (s.startsWith('|')) s = s.slice(1);
+        if (s.endsWith('|')) s = s.slice(0, -1);
+        return s.split('|').map(c => c.trim());
+      };
+      const rows = [cleanRow(trimmed)];
+      let j = i + 2;
+      while (j < lines.length && lines[j].trim().includes('|') && lines[j].trim().length > 0) {
+        rows.push(cleanRow(lines[j]));
+        j++;
+      }
+      return rows;
+    }
+  }
+  return null;
+}
+
+// Global handler: Copy Question Table Data to Clipboard
+window.copyQuestionTableData = function(btn) {
+  try {
+    const wrap = btn.closest('.question-markdown-table-wrap');
+    if (!wrap) return;
+    const dataAttr = wrap.getAttribute('data-table');
+    if (!dataAttr) return;
+    const parsed = JSON.parse(dataAttr);
+    if (!parsed.headers || !parsed.rows) return;
+    const tsv = [parsed.headers.join('\t'), ...parsed.rows.map(r => r.join('\t'))].join('\n');
+    navigator.clipboard.writeText(tsv).then(() => {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Table data copied to clipboard (TSV format for Excel)!', 'success');
+      }
+    }).catch(() => {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Copied to clipboard!', 'info');
+      }
+    });
+  } catch (e) {
+    console.error('Error copying table data:', e);
+  }
+};
+
+// Global handler: Load Question Table Data into Table Editor
+window.loadTableDataToEditor = function(btn) {
+  try {
+    const wrap = btn.closest('.question-markdown-table-wrap');
+    if (!wrap) return;
+    const dataAttr = wrap.getAttribute('data-table');
+    if (!dataAttr) return;
+    const parsed = JSON.parse(dataAttr);
+    if (!parsed.headers || !parsed.rows) return;
+
+    const cells2D = [parsed.headers, ...parsed.rows];
+    const iframe = document.querySelector('iframe[id*="table-editor-iframe"]');
+
+    if (iframe && iframe.contentWindow) {
+      if (typeof sendPostMessageToIframe === 'function') {
+        sendPostMessageToIframe(iframe.contentWindow, 'LEVELUP_INIT', {
+          data: cells2D,
+          csv: cells2D.map(r => r.join(',')).join('\n')
+        });
+      } else {
+        iframe.contentWindow.postMessage({
+          protocol: 'LEVELUP_EDITOR_v1',
+          type: 'LEVELUP_INIT',
+          payload: {
+            data: cells2D,
+            csv: cells2D.map(r => r.join(',')).join('\n')
+          },
+          timestamp: Date.now()
+        }, '*');
+      }
+    }
+
+    const fallbackTextarea = document.querySelector('textarea[id*="editor-fallback-textarea"]');
+    if (fallbackTextarea) {
+      fallbackTextarea.value = cells2D.map(r => r.join(',')).join('\n');
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast('Table data loaded into Table Editor successfully!', 'success');
+    }
+  } catch (e) {
+    console.error('Error loading table data to editor:', e);
+  }
+};
+
 // js/quiz.js
 document.addEventListener('DOMContentLoaded', async () => {
   // Parse URL query code
@@ -96,8 +192,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           id: 'q-demo-excel',
           type: 'EXCEL',
           syllabus_tag: 'Spreadsheet Practical',
-          question_text: 'Create a Quarterly Sales report with columns for Region, Q1, Q2, and Total Sales. Apply the SUM formula for Total.',
-          correct_option: 'Spreadsheet containing Region, Q1, Q2, and Total calculation formula'
+          question_text: 'Create an Excel worksheet, calculate the average marks, filter students by activity, and create a Bar Chart.\n\n| Student | Activity | Marks |\n| ------- | -------- | ----: |\n| Reema | Drawing | 93 |\n| Om | Quiz | 68 |\n| Sara | Drawing | 79 |\n| Ajay | Quiz | 84 |\n| Naina | Drawing | 88 |',
+          correct_option: 'Spreadsheet containing student marks, average formula =AVERAGE(C2:C6), activity filter, and bar chart'
         }
       ]
     };
@@ -1632,8 +1728,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const iframe = document.getElementById(`table-editor-iframe-${q.id}`);
+        let initialDataToSend = selectedAns || '';
+        if (!initialDataToSend && q.question_text && q.question_text.includes('|')) {
+          const starterTable = extractMarkdownTableFromText(q.question_text);
+          if (starterTable) {
+            initialDataToSend = starterTable;
+            localStorage.setItem('levelup_excel_initial_' + q.id, JSON.stringify(starterTable));
+            const fallbackTa = document.getElementById(`editor-fallback-textarea-${q.id}`);
+            if (fallbackTa && !fallbackTa.value.trim()) {
+              fallbackTa.value = starterTable.map(r => r.join(',')).join('\n');
+            }
+          }
+        }
         if (iframe && iframe.contentWindow) {
-          sendPostMessageToIframe(iframe.contentWindow, 'LEVELUP_INIT', { data: selectedAns || '' }, q.id);
+          sendPostMessageToIframe(iframe.contentWindow, 'LEVELUP_INIT', { data: initialDataToSend }, q.id);
         }
 
         const fallbackTextarea = document.getElementById(`editor-fallback-textarea-${q.id}`);

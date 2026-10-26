@@ -16,13 +16,110 @@ window.escapeHtml = function(str) {
 window.formatQuestionText = function(str) {
   if (!str) return '';
 
-  return window.escapeHtml(str)
-    .replace(/`([^`\n]+)`/g, '<code class="formatted-inline-code">$1</code>')
-    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '<span class="formatted-frac"><span>$1</span><span>$2</span></span>')
-    .replace(/\\overline\{([^{}]+)\}/g, '<span class="formatted-overline">$1</span>')
-    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
-    .replace(/\n/g, '<br>');
+  const formatInline = function(text) {
+    if (!text) return '';
+    return window.escapeHtml(text)
+      .replace(/`([^`\n]+)`/g, '<code class="formatted-inline-code">$1</code>')
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '<span class="formatted-frac"><span>$1</span><span>$2</span></span>')
+      .replace(/\\overline\{([^{}]+)\}/g, '<span class="formatted-overline">$1</span>')
+      .replace(/\*\*([^\*\n]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^\*\n]+)\*/g, '<em>$1</em>');
+  };
+
+  const rawLines = String(str).split(/\r?\n/);
+  const processedSegments = [];
+  let i = 0;
+
+  while (i < rawLines.length) {
+    const line = rawLines[i];
+    const trimmed = line.trim();
+
+    if (trimmed.includes('|') && i + 1 < rawLines.length) {
+      const nextTrimmed = rawLines[i + 1].trim();
+      const isDelimiter = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(nextTrimmed);
+
+      if (isDelimiter) {
+        const cleanRow = function(r) {
+          let s = r.trim();
+          if (s.startsWith('|')) s = s.slice(1);
+          if (s.endsWith('|')) s = s.slice(0, -1);
+          return s.split('|').map(function(c) { return c.trim(); });
+        };
+
+        const headers = cleanRow(trimmed);
+        const delims = cleanRow(nextTrimmed);
+        const alignments = delims.map(function(d) {
+          const l = d.startsWith(':');
+          const r = d.endsWith(':');
+          if (l && r) return 'center';
+          if (r) return 'right';
+          return 'left';
+        });
+
+        const rows = [];
+        i += 2; // skip header and delimiter
+
+        while (i < rawLines.length && rawLines[i].trim().includes('|') && rawLines[i].trim().length > 0) {
+          rows.push(cleanRow(rawLines[i]));
+          i++;
+        }
+
+        const tableJson = JSON.stringify({ headers: headers, rows: rows });
+        const escapedTableJson = tableJson.replace(/"/g, '&quot;');
+
+        let tableHtml = '<div class="my-4 overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white question-markdown-table-wrap" data-table="' + escapedTableJson + '">';
+        tableHtml += '<table class="min-w-full divide-y divide-slate-200 text-sm border-collapse">';
+        tableHtml += '<thead class="bg-slate-100/90 text-slate-800 font-bold"><tr>';
+
+        headers.forEach(function(h, idx) {
+          const align = alignments[idx] || 'left';
+          const alignClass = align === 'center' ? 'text-center' : (align === 'right' ? 'text-right' : 'text-left');
+          tableHtml += '<th class="px-4 py-2.5 ' + alignClass + ' font-bold text-slate-800 border-r last:border-r-0 border-slate-200">' + formatInline(h) + '</th>';
+        });
+
+        tableHtml += '</tr></thead>';
+        tableHtml += '<tbody class="divide-y divide-slate-100 bg-white">';
+
+        rows.forEach(function(row, rIdx) {
+          const zebra = rIdx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white';
+          tableHtml += '<tr class="' + zebra + ' hover:bg-slate-50 transition">';
+          row.forEach(function(cell, idx) {
+            const align = alignments[idx] || 'left';
+            const alignClass = align === 'center' ? 'text-center' : (align === 'right' ? 'text-right' : 'text-left');
+            const isNumeric = /^-?\d+(\.\d+)?%?$/.test(cell);
+            const numClass = isNumeric ? ' font-mono font-medium' : '';
+            tableHtml += '<td class="px-4 py-2 ' + alignClass + numClass + ' text-slate-700 border-r last:border-r-0 border-slate-100">' + formatInline(cell) + '</td>';
+          });
+          tableHtml += '</tr>';
+        });
+
+        tableHtml += '</tbody></table>';
+
+        tableHtml += '<div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-600">';
+        tableHtml += '  <span class="flex items-center gap-1.5 font-semibold text-slate-700">';
+        tableHtml += '    <i data-lucide="table" class="w-3.5 h-3.5 text-emerald-600"></i> Table Data (' + rows.length + ' rows)';
+        tableHtml += '  </span>';
+        tableHtml += '  <div class="flex items-center gap-2">';
+        tableHtml += '    <button type="button" onclick="window.copyQuestionTableData(this)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-[11px] transition shadow-xs cursor-pointer">';
+        tableHtml += '      <i data-lucide="copy" class="w-3 h-3 text-slate-500"></i> Copy Data';
+        tableHtml += '    </button>';
+        tableHtml += '    <button type="button" onclick="window.loadTableDataToEditor(this)" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition shadow-xs cursor-pointer">';
+        tableHtml += '      <i data-lucide="arrow-down-to-line" class="w-3 h-3"></i> Load into Table Editor';
+        tableHtml += '    </button>';
+        tableHtml += '  </div>';
+        tableHtml += '</div>';
+        tableHtml += '</div>';
+
+        processedSegments.push(tableHtml);
+        continue;
+      }
+    }
+
+    processedSegments.push(formatInline(line));
+    i++;
+  }
+
+  return processedSegments.join('<br>');
 };
 var formatQuestionText = window.formatQuestionText;
 

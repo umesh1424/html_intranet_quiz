@@ -5103,7 +5103,30 @@
                             importHtmlTable(trimmed);
                             return;
                         } else {
-                            return;
+                            // Support CSV, TSV, or Markdown table text import
+                            const lines = trimmed.split(/\r?\n/).filter(l => l.trim().length > 0);
+                            if (lines.length > 0) {
+                                if (lines[0].trim().startsWith('|') && lines[0].trim().endsWith('|')) {
+                                    const rows = [];
+                                    for (const line of lines) {
+                                        const clean = line.trim();
+                                        if (/^\|(?:\s*:?-+:?\s*\|)+$/.test(clean)) continue;
+                                        if (clean.startsWith('|') && clean.endsWith('|')) {
+                                            rows.push(clean.slice(1, -1).split('|').map(c => c.trim()));
+                                        }
+                                    }
+                                    if (rows.length > 0) parsed = rows;
+                                    else return;
+                                } else if (lines[0].includes('\t')) {
+                                    parsed = lines.map(l => l.split('\t').map(c => c.trim()));
+                                } else if (lines[0].includes(',')) {
+                                    parsed = lines.map(l => l.split(',').map(c => c.trim()));
+                                } else {
+                                    return;
+                                }
+                            } else {
+                                return;
+                            }
                         }
                     }
 
